@@ -1,4 +1,4 @@
-﻿#include <iostream>
+﻿#include <iostream>  // g++ main.cpp -lGL -lGLU -lglut -lGLEW -lglfw
 #include <cstdlib>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -12,6 +12,15 @@ using namespace std;
 #ifndef GLSL
 #define GLSL(Version, Source) "#version " #Version " core \n" #Source
 #endif
+
+// Define global variables for each shapes VAO and index count
+GLuint pyramidVAO;
+GLuint pyramidVBO;
+GLuint pyramidEBO;
+GLuint pyramidIndicesCount;
+
+GLuint cubeVAO;
+GLuint cubeIndicesCount;
 
 
 namespace
@@ -53,9 +62,9 @@ void UDestroyShaderProgram(GLuint programId);
 
 
 //Vertex Shader Source Code
-const GLchar * vertexShaderSource = GLSL(440,
-layout (location = 0) in vec3 position;
-layout (location = 1) in vec4 color;
+const GLchar* vertexShaderSource = GLSL(440,
+    layout(location = 0) in vec3 position;
+layout(location = 1) in vec4 color;
 out vec4 vertexColor;
 
 //Globals for transform matrices
@@ -65,19 +74,19 @@ uniform mat4 projection;
 
 void main()
 {
-   gl_Position = projection * view * model * vec4(position, 1.0f);
-   vertexColor = color;
+    gl_Position = projection * view * model * vec4(position, 1.0f);
+    vertexColor = color;
 });
 
 
 //Fragment Shader Source Code
-const GLchar * fragmentShaderSource = GLSL(440,
-//Hold incoming color data from vertex shader
-in vec4 vertexColor;
+const GLchar* fragmentShaderSource = GLSL(440,
+    //Hold incoming color data from vertex shader
+    in vec4 vertexColor;
 out vec4 fragmentColor;
 void main()
 {
-   fragmentColor = vec4(vertexColor);
+    fragmentColor = vec4(vertexColor);
 });
 
 
@@ -130,7 +139,7 @@ bool UInitialize(int argc, char* argv[], GLFWwindow** window)
 #endif
 
     // GLFW: window creation
-    *window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, NULL, NULL);
+    * window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, NULL, NULL);
     if (*window == NULL)
     {
         std::cout << "You can't even create a GLFW window? Wow." << std::endl;
@@ -173,7 +182,6 @@ void UResizeWindow(GLFWwindow* window, int width, int height)
 }
 
 
-//Render a frame
 void URender()
 {
     // Enable z-depth
@@ -182,42 +190,43 @@ void URender()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // 1. Scales the object by 2
-    glm::mat4 scale = glm::scale(glm::vec3(2.0f, 2.0f, 2.0f));
-    // 2. Rotates shape by 15 degrees in the x axis
-    glm::mat4 rotation = glm::rotate(45.0f, glm::vec3(1.0, 1.0f, 1.0f));
-    // 3. Place object at the origin
-    glm::mat4 translation = glm::translate(glm::vec3(0.0f, 0.0f, 0.0f));
-    // Model matrix: transformations are applied right-to-left order
-    glm::mat4 model = translation * rotation * scale;
-
-    // Transforms the camera: move the camera back (z axis)
-    glm::mat4 view = glm::translate(glm::vec3(0.0f, 0.0f, -5.0f));
-
-    // Creates a orthographic projection
-    glm::mat4 projection = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 100.0f);
-
-
     // Set the shader to be used
     glUseProgram(gProgramId);
+
+    // Pyramid transformations
+    glm::mat4 pyramidModel = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.0f, 0.0f)); // Translate the pyramid to the left
+    glm::mat4 pyramidView = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));  // Your view matrix for the pyramid
+    glm::mat4 pyramidProjection = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 100.0f);  // Your projection matrix for the pyramid
+
+    //Retreive and pass transformation matrices to the shader
+    GLint pyrmodelLoc = glGetUniformLocation(gProgramId, "model");
+    GLint pyrviewLoc = glGetUniformLocation(gProgramId, "view");
+    GLint pyrprojLoc = glGetUniformLocation(gProgramId, "projection");
+
+    // Render the Pyramid
+    glBindVertexArray(pyramidVAO);
+    glUniformMatrix4fv(pyrmodelLoc, 1, GL_FALSE, glm::value_ptr(pyramidModel));
+    glUniformMatrix4fv(pyrviewLoc, 1, GL_FALSE, glm::value_ptr(pyramidView));
+    glUniformMatrix4fv(pyrprojLoc, 1, GL_FALSE, glm::value_ptr(pyramidProjection));
+    glDrawElements(GL_TRIANGLES, pyramidIndicesCount, GL_UNSIGNED_SHORT, NULL);
+    glBindVertexArray(0);
+
+    // Cube transformations
+    glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, 0.0f));  // Translate the cube to the right
+    glm::mat4 cubeView = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));  // Your view matrix for the cube
+    glm::mat4 cubeProjection = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 100.0f);  // Your projection matrix for the cube
 
     //Retreive and pass transformation matrices to the shader
     GLint modelLoc = glGetUniformLocation(gProgramId, "model");
     GLint viewLoc = glGetUniformLocation(gProgramId, "view");
     GLint projLoc = glGetUniformLocation(gProgramId, "projection");
 
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-
-    // Activate the VBOs contained within the mesh's VAO
-    glBindVertexArray(gMesh.vao);
-
-    // Draw a triangle
-    glDrawElements(GL_TRIANGLES, gMesh.nIndices, GL_UNSIGNED_SHORT, NULL);
-
-    // Deactivate the VAO
+    // Render the Cube
+    glBindVertexArray(cubeVAO);
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(cubeModel));
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(cubeView));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(cubeProjection));
+    glDrawElements(GL_TRIANGLES, cubeIndicesCount, GL_UNSIGNED_SHORT, NULL);
     glBindVertexArray(0);
 
     // Flips the back buffer with the front buffer every frame
@@ -225,13 +234,57 @@ void URender()
 }
 
 
-void UCreateMesh(GLMesh &mesh)
+
+void UCreateMesh(GLMesh& mesh)
 {
+
+    // // // //     Create Cube     // // // //
+    // Define vertices for the cube
+    GLfloat vertsA[] = {
+        // Vertex Positions    // Colors (r,g,b,a)
+        0.5f,  1.5f, -0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Back Top Right Vertex 0
+         0.5f, -0.5f, 0.0f,   0.2f, .7f, 0.2f, 1.0f, // Front Bottom Right 1
+        -0.5f, -0.5f, 0.0f,   0.2f, 0.2f, 0.7f, 1.0f, // Front Bottom Left 2
+         0.5f, -0.5f, -1.0f,  0.5f, 0.5f, 1.0f, 1.0f, // Back Bottom Right 3
+        -0.5f, -0.5f, -1.0f,  0.7f, 0.2f, 0.7f, 1.0f,  // Back Bottom Left 4
+        0.5f,  1.5f, 0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Front Top Right Vertex 5
+        -0.5f,  1.5f, -0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Back Top Left Vertex 6
+        -0.5f,  1.5f, 0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Front Top Left Vertex 7
+    };
+
+    // Define indices for the cube
+    GLushort indicesA[] = {
+        0, 1, 3,  // Triangle 1 (right side)
+        0, 5, 1,   // Triangle 2 (right side)
+        2, 4, 6,  // Triangle 3 (left side)
+        2, 7, 6,  // Triangle 4 (left side)
+        1, 2, 3, // Triangle 5 (bottom)
+        3, 4, 2,  // Triangle 6 (bottom)
+        5, 6, 7,  // Triangle 7 (top)
+        5, 0, 6,  // Triangle 8 (top)
+        0, 3, 4,  // Triangle 9 (back)
+        0, 6, 3,  // Triangle 10 (back)
+        1, 2, 5,  // Triangle 11 (front)
+        2, 7, 5,  // Triangle 12 (front)
+    };
+
+    // Create VAO and buffers for the cube
+    glGenVertexArrays(1, &cubeVAO);
+    glBindVertexArray(cubeVAO);
+
+    glGenBuffers(1, &pyramidEBO); // Create 2 buffers for the cube
+    glBindBuffer(GL_ARRAY_BUFFER, pyramidEBO); // Activate the buffer for vertex data
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertsA), vertsA, GL_STATIC_DRAW); // Send vertex data to the GPU
+
+    cubeIndicesCount = sizeof(indicesA) / sizeof(indicesA[0]);
+
+
+    // // // //     Create Pyramid     // // // //
     // Specifies Normalized Device Coordinates (x,y,z) and color (r,g,b,a) for vertices
-    GLfloat verts[] =
+    GLfloat vertsB[] =
     {
         // Vertex Positions    // Colors (r,g,b,a)
-         0.0f,  1.4f, 0.0f,   0.7f, 0.2f, 0.2f, 1.0f, // Top Vertex 0
+         0.0f,  1.4f, -0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Top Vertex 0
          0.5f, -0.5f, 0.0f,   0.2f, .7f, 0.2f, 1.0f, // Bottom Right 1
         -0.5f, -0.5f, 0.0f,   0.2f, 0.2f, 0.7f, 1.0f, // Bottom Left 2
          0.5f, -0.5f, -1.0f,  0.5f, 0.5f, 1.0f, 1.0f, // Back Bottom Right 3
@@ -239,7 +292,7 @@ void UCreateMesh(GLMesh &mesh)
     };
 
     // Index data to share position data
-    GLushort indices[] = {
+    GLushort indicesB[] = {
         0, 1, 3,  // Triangle 1 (left side)
         0, 2, 4,   // Triangle 2 (right side)
         0, 1, 2,  // Triangle 3 (front side)
@@ -247,21 +300,25 @@ void UCreateMesh(GLMesh &mesh)
         3, 4, 2, // Triangle 5 (bottom)
         1, 2, 3,  // Triangle 6 (bottom)
     };
+    // Create separate VBO and EBO for the pyramid
+    glGenBuffers(2, &pyramidVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, pyramidVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertsB), vertsB, GL_STATIC_DRAW);
+
+    glGenVertexArrays(1, &pyramidVAO);
+    glBindVertexArray(pyramidVAO);
+
+    glGenBuffers(1, &pyramidEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pyramidEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indicesB), indicesB, GL_STATIC_DRAW);
+
+    pyramidIndicesCount = sizeof(indicesB) / sizeof(indicesB[0]);
+
+
 
     const GLuint floatsPerVertex = 3;
     const GLuint floatsPerColor = 4;
 
-    glGenVertexArrays(1, &mesh.vao); //You could generate multiple VAOs or buffers at once
-    glBindVertexArray(mesh.vao);
-
-    // Create 2 buffers: first one for the vertex data; second one for the indices
-    glGenBuffers(2, mesh.vbos);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
-
-    mesh.nIndices = sizeof(indices) / sizeof(indices[0]);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.vbos[1]);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     //Strides between vertex coordinates: (x, y, z, r, g, b, a). Tightly packed strides are 0
     GLint stride = sizeof(float) * (floatsPerVertex + floatsPerColor);
@@ -276,10 +333,12 @@ void UCreateMesh(GLMesh &mesh)
 }
 
 
-void UDestroyMesh(GLMesh &mesh)
+void UDestroyMesh(GLMesh& mesh)
 {
     glDeleteVertexArrays(1, &mesh.vao);
-    glDeleteBuffers(2, mesh.vbos);
+    glDeleteBuffers(1, &mesh.vbos[0]); // Update this line to delete the correct buffer
+    glDeleteBuffers(1, &mesh.vbos[1]); // Update this line to delete the correct buffer
+
 }
 
 
