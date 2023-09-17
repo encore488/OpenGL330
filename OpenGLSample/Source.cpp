@@ -1,49 +1,100 @@
-﻿#include <iostream>  // g++ main.cpp -lGL -lGLU -lglut -lGLEW -lglfw
-#include <cstdlib>
-#include <GL/glew.h>
+﻿#include <GL/glew.h>
 #include <GLFW/glfw3.h>
-//GLM Math Headers
+#include <iostream>
+#include <cstdlib>
+#include <GL/GLU.h>
+#include "camera.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+// GLM Math Header inclusions
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+
+
+
 using namespace std;
 
+/*Shader program Macro*/
 #ifndef GLSL
 #define GLSL(Version, Source) "#version " #Version " core \n" #Source
 #endif
 
-// Define global variables for each shapes VAO and index count
-GLuint pyramidVAO;
-GLuint pyramidVBO;
-GLuint pyramidEBO;
-GLuint pyramidIndicesCount;
-
-GLuint cubeVAO;
-GLuint cubeIndicesCount;
-
+#define SCREEN_WIDTH 1100
+#define SCREEN_HEIGHT 800
 
 namespace
 {
     const char* const WINDOW_TITLE = "Window of Justice";
-    const int WINDOW_WIDTH = 1200;
-    const int WINDOW_HEIGHT = 850;
+    const int WINDOW_WIDTH = SCREEN_WIDTH;
+    const int WINDOW_HEIGHT = SCREEN_HEIGHT;
 
-    //A public class that stores the data for a mesh
-    //A mesh is a collection of vertices, faces, and edges to define the shape of objects in 3d space
+    // 4*4 matrices for transforming shapes' vertices into clip coordinates
+    glm::mat4 rotation;
+    glm::mat4 translation;
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 projection;
+    glm::mat4 perspective;
+    glm::mat4 ortho;
+
+    bool isPerspective = true;
+
+    //Main window
+    GLFWwindow* gWindow = nullptr;
+
+    //Shader program
+    GLuint gProgramId;
+
+    //Cylinder quadric object
+    GLUquadricObj* cyl;
+
+    // Stores the GL data relative to a given mesh
     struct GLMesh
     {
-        GLuint vao;         //Vertex Array Object
-        GLuint vbos[2];     //Vertex Buffer Objects
-        GLuint nIndices;
+        GLuint vao;         // Handle for the vertex array object
+        GLuint vbos[2];         // Handle for the vertex buffer object
+        GLuint nIndices;    // Number of indices of the mesh
     };
 
-    // Main GLFW window
-    GLFWwindow* gWindow = nullptr;
-    // Triangle mesh data
-    GLMesh gMesh;
-    // Shader program
-    GLuint gProgramId;
+    //Store coordinates for points
+    struct GLCoord {
+        GLfloat x;
+        GLfloat y;
+        GLfloat z;
+    };
+
+    //Declare each mesh
+    GLMesh basilMesh;
+    GLMesh cayenneMesh;
+    GLMesh pepperMesh;
+    GLMesh mugMesh;
+    GLMesh padMesh;
+    GLMesh knitMesh;
+
+    //VAOs and VBOs for each mesh
+    unsigned int VBOknit, VBObasil, VBOcayenne, VBOpepper, VBOmug, VBOpad;
+    unsigned int VAOknit, VAOcayenne, VAOpepper, VAOmug, VAOpad, VAObasil;
+
+    //Camera variables
+    glm::vec3 gCameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+    glm::vec3 gCameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 gCameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 gCameraRight = glm::normalize(glm::cross(gCameraFront, gCameraUp));
+
+    // camera
+    Camera gCamera(glm::vec3(0.0f, 0.0f, 3.0f));
+    float gLastX = WINDOW_WIDTH / 2.0f;
+    float gLastY = WINDOW_HEIGHT / 2.0f;
+    bool gFirstMouse = true;
+
+    // timing
+    float gDeltaTime = 0.0f; // time between current frame and last frame
+    float gLastFrame = 0.0f;
+
+    GLfloat halfScreenWidth = SCREEN_WIDTH / 2;
+    GLfloat halfScreenHeight = SCREEN_HEIGHT / 2;
 }
 
 /* User-defined Function prototypes to:
@@ -53,75 +104,133 @@ namespace
  */
 bool UInitialize(int, char* [], GLFWwindow** window);
 void UResizeWindow(GLFWwindow* window, int width, int height);
+void generateTextures();
 void UProcessInput(GLFWwindow* window);
-void UCreateMesh(GLMesh& mesh);
+void UMousePositionCallback(GLFWwindow* window, double xpos, double ypos);
+void UMouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+void UCreatePlaneMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bottomLeft, GLCoord bottomRight);
+void UCreateCubeMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bottomLeft, GLCoord bottomRight, GLfloat depth);
 void UDestroyMesh(GLMesh& mesh);
 void URender();
 bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSource, GLuint& programId);
 void UDestroyShaderProgram(GLuint programId);
 
 
-//Vertex Shader Source Code
+/* Vertex Shader Source Code*/
 const GLchar* vertexShaderSource = GLSL(440,
-    layout(location = 0) in vec3 position;
-layout(location = 1) in vec4 color;
-out vec4 vertexColor;
+    layout(location = 0) in vec3 position; // Vertex data from Vertex Attrib Pointer 0
+layout(location = 1) in vec4 color;  // Color data from Vertex Attrib Pointer 1
 
-//Globals for transform matrices
+out vec4 vertexColor; // variable to transfer color data to the fragment shader
+
+//Global variables for the  transform matrices
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
 void main()
 {
-    gl_Position = projection * view * model * vec4(position, 1.0f);
-    vertexColor = color;
-});
+    gl_Position = projection * view * model * vec4(position, 1.0f); // transforms vertices to clip coordinates
+    vertexColor = color; // references incoming color data
+}
+);
 
 
-//Fragment Shader Source Code
+/* Fragment Shader Source Code*/
 const GLchar* fragmentShaderSource = GLSL(440,
-    //Hold incoming color data from vertex shader
-    in vec4 vertexColor;
+    in vec4 vertexColor; // Variable to hold incoming color data from vertex shader
+
 out vec4 fragmentColor;
+
 void main()
 {
     fragmentColor = vec4(vertexColor);
-});
-
+}
+);
 
 
 int main(int argc, char* argv[])
 {
-    //Initialize program
     if (!UInitialize(argc, argv, &gWindow))
         return EXIT_FAILURE;
 
-    //Create empty GLmesh, with empty vao, 2 vbos and nIndices
-    UCreateMesh(gMesh);
+    //Coordinates for BASIL
+    struct GLCoord topRight = { 2.0f, 1.3f, 0.7f };
+    struct GLCoord topLeft = { 1.0f, 1.3f, 0.2f };
+    struct GLCoord bottomLeft = { 1.0f, -0.5f, 0.2f };
+    struct GLCoord bottomRight = { 2.0f, -0.5f, 0.7f };
+    // Create the mesh
+    UCreateCubeMesh(basilMesh, topRight, topLeft, bottomRight, bottomLeft, 1.0f); // Calls the function to create the Vertex Buffer Object
+    //Coordinates for CAYENNE
+    topRight = { -1.0f, 1.3f, 0.2f };
+    topLeft = { -2.0f, 1.3f, 0.7f };
+    bottomLeft = { -2.0f, -0.5f, 0.7f };
+    bottomRight = { -1.0f, -0.5f, 0.2f };
+    UCreateCubeMesh(cayenneMesh, topRight, topLeft, bottomRight, bottomLeft, 1.0f); // Calls the function to create the Vertex Buffer Object
 
+    // Create the shader program
     if (!UCreateShaderProgram(vertexShaderSource, fragmentShaderSource, gProgramId))
         return EXIT_FAILURE;
 
-    //Clear color and set a new one
+
+    // Sets the background color of the window to black (it will be implicitely used by glClear)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-    // render loop, aka game loop
+    // render loop
+    // -----------
     while (!glfwWindowShouldClose(gWindow))
     {
+        //set projections for perspective and ortho
+        perspective = glm::perspective(glm::radians(gCamera.Zoom), (GLfloat)WINDOW_WIDTH / (GLfloat)WINDOW_HEIGHT, 0.1f, 100.0f);
+        ortho = glm::ortho(-2.0f, +2.0f, -2.0f, +2.0f, 0.1f, 100.0f);
+       
+        // per frame timing
+        float currentFrame = glfwGetTime();
+        gDeltaTime = currentFrame - gLastFrame;
+        gLastFrame = currentFrame;
 
+        rotation = glm::rotate(glm::radians(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        rotation = glm::rotate(glm::radians(0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+        translation = glm::translate(glm::vec3(0.0f, 0.0f, 0.0f));
+        // Model matrix: transformations are applied right-to-left order
+        model = translation * rotation;
+
+        view = gCamera.GetViewMatrix();
+
+        // Retrieves and passes transform matrices to the Shader program
+        GLint modelLoc = glGetUniformLocation(gProgramId, "model");
+        GLint viewLoc = glGetUniformLocation(gProgramId, "view");
+        GLint projLoc = glGetUniformLocation(gProgramId, "projection");
+
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+
+        
+        // input
+        // -----
         UProcessInput(gWindow);
+        if (isPerspective) {
+            projection = perspective;
+        }
+        else {
+			projection = ortho;
+		}
 
+        // Render this frame
         URender();
 
         glfwPollEvents();
     }
-
-    //Destroy stuff when you're done. Who knows what would happen if you just let it keep going?
-    UDestroyMesh(gMesh);
     UDestroyShaderProgram(gProgramId);
 
-    exit(EXIT_SUCCESS);
+    // Release mesh data. Who knows what will happen if you keep it?
+    UDestroyMesh(basilMesh);
+    UDestroyMesh(cayenneMesh);
+
+    exit(EXIT_SUCCESS); // Terminates the program successfully
 }
 
 
@@ -129,6 +238,7 @@ int main(int argc, char* argv[])
 bool UInitialize(int argc, char* argv[], GLFWwindow** window)
 {
     // GLFW: initialize and configure
+    // ------------------------------
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
@@ -139,15 +249,22 @@ bool UInitialize(int argc, char* argv[], GLFWwindow** window)
 #endif
 
     // GLFW: window creation
+    // ---------------------
     * window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, NULL, NULL);
     if (*window == NULL)
     {
-        std::cout << "You can't even create a GLFW window? Wow." << std::endl;
+        std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return false;
     }
     glfwMakeContextCurrent(*window);
     glfwSetFramebufferSizeCallback(*window, UResizeWindow);
+    glfwSetCursorPosCallback(*window, UMousePositionCallback);
+    glfwSetScrollCallback(*window, UMouseScrollCallback);
+    glfwSetMouseButtonCallback(*window, UMouseButtonCallback);
+
+    // tell GLFW to capture our mouse
+    glfwSetInputMode(*window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // GLEW: initialize
     // ----------------
@@ -168,163 +285,179 @@ bool UInitialize(int argc, char* argv[], GLFWwindow** window)
 }
 
 
-//query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 void UProcessInput(GLFWwindow* window)
 {
+    static const float cameraSpeed = 2.5f;
+
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(FORWARD, gDeltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(BACKWARD, gDeltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(LEFT, gDeltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(RIGHT, gDeltaTime);
 }
 
 
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
 void UResizeWindow(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
 }
 
 
+// glfw: whenever the mouse moves, this callback is called
+// -------------------------------------------------------
+void UMousePositionCallback(GLFWwindow* window, double xpos, double ypos)
+{
+    if (gFirstMouse)
+    {
+        gLastX = xpos;
+        gLastY = ypos;
+        gFirstMouse = false;
+    }
+
+    float xoffset = xpos - gLastX;
+    float yoffset = gLastY - ypos; // reversed since y-coordinates go from bottom to top
+
+    gLastX = xpos;
+    gLastY = ypos;
+
+    gCamera.ProcessMouseMovement(xoffset, yoffset);
+}
+
+
+// glfw: whenever the mouse scroll wheel scrolls, this callback is called
+// ----------------------------------------------------------------------
+void UMouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    gCamera.ProcessMouseScroll(yoffset);
+}
+
+// glfw: handle mouse button events
+// --------------------------------
+void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+    switch (button)
+    {
+    case GLFW_MOUSE_BUTTON_LEFT:
+    {
+        if (action == GLFW_PRESS)
+            cout << "Left mouse button pressed" << endl;
+        else
+            cout << "Left mouse button released" << endl;
+    }
+    break;
+
+    case GLFW_MOUSE_BUTTON_MIDDLE:
+    {
+        if (action == GLFW_PRESS)
+            cout << "Middle mouse button pressed" << endl;
+        else
+            cout << "Middle mouse button released" << endl;
+    }
+    break;
+
+    case GLFW_MOUSE_BUTTON_RIGHT:
+    {
+        if (action == GLFW_PRESS)
+            cout << "Right mouse button pressed" << endl;
+        else
+            cout << "Right mouse button released" << endl;
+    }
+    break;
+
+    default:
+        cout << "Unhandled mouse button event" << endl;
+        break;
+    }
+}
+
+
+// Function called to render a frame
 void URender()
 {
     // Enable z-depth
     glEnable(GL_DEPTH_TEST);
 
+    // Clear the frame and z buffers
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Set the shader to be used
+    //Set the shader to be used
     glUseProgram(gProgramId);
 
-    // Pyramid transformations
-    glm::mat4 pyramidModel = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.0f, 0.0f)); // Translate the pyramid to the left
-    glm::mat4 pyramidView = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));  // Your view matrix for the pyramid
-    glm::mat4 pyramidProjection = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 100.0f);  // Your projection matrix for the pyramid
-
-    //Retreive and pass transformation matrices to the shader
-    GLint pyrmodelLoc = glGetUniformLocation(gProgramId, "model");
-    GLint pyrviewLoc = glGetUniformLocation(gProgramId, "view");
-    GLint pyrprojLoc = glGetUniformLocation(gProgramId, "projection");
-
-    // Render the Pyramid
-    glBindVertexArray(pyramidVAO);
-    glUniformMatrix4fv(pyrmodelLoc, 1, GL_FALSE, glm::value_ptr(pyramidModel));
-    glUniformMatrix4fv(pyrviewLoc, 1, GL_FALSE, glm::value_ptr(pyramidView));
-    glUniformMatrix4fv(pyrprojLoc, 1, GL_FALSE, glm::value_ptr(pyramidProjection));
-    glDrawElements(GL_TRIANGLES, pyramidIndicesCount, GL_UNSIGNED_SHORT, NULL);
+    //BASIL
+    glBindVertexArray(basilMesh.vao);
+    glDrawElements(GL_TRIANGLES, basilMesh.nIndices, GL_UNSIGNED_SHORT, NULL);
+    glBindVertexArray(0);
+    //CAYENNE
+    glBindVertexArray(cayenneMesh.vao);
+    glDrawElements(GL_TRIANGLES, cayenneMesh.nIndices, GL_UNSIGNED_SHORT, NULL);
     glBindVertexArray(0);
 
-    // Cube transformations
-    glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, 0.0f));  // Translate the cube to the right
-    glm::mat4 cubeView = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -5.0f));  // Your view matrix for the cube
-    glm::mat4 cubeProjection = glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 100.0f);  // Your projection matrix for the cube
 
-    //Retreive and pass transformation matrices to the shader
-    GLint modelLoc = glGetUniformLocation(gProgramId, "model");
-    GLint viewLoc = glGetUniformLocation(gProgramId, "view");
-    GLint projLoc = glGetUniformLocation(gProgramId, "projection");
 
-    // Render the Cube
-    glBindVertexArray(cubeVAO);
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(cubeModel));
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(cubeView));
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(cubeProjection));
-    glDrawElements(GL_TRIANGLES, cubeIndicesCount, GL_UNSIGNED_SHORT, NULL);
-    glBindVertexArray(0);
-
-    // Flips the back buffer with the front buffer every frame
+    //Swap buffers every frame. One is being transformed while the other is displayed
     glfwSwapBuffers(gWindow);
 }
 
 
 
-void UCreateMesh(GLMesh& mesh)
+void UCreateCubeMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bottomLeft, GLCoord bottomRight, GLfloat depth)
 {
+    // Vertex data
+    GLfloat verts[] = {
+        //Front Face
+        topRight.x,  topRight.y, topRight.z,                     1.0f, 0.0f, 0.0f, 0.8f, // Top Right Vertex 0
+        bottomLeft.x, bottomLeft.y, bottomLeft.z,             0.0f, 1.0f, 0.0f, 0.8f, // Bottom Left Vertex 1
+        bottomRight.x, bottomRight.y, bottomRight.z,                0.0f, 0.0f, 1.0f, 0.8f, // Bottom Right Vertex 2
+        topLeft.x,  topLeft.y, topLeft.z,                        1.0f, 0.0f, 1.0f, 0.8f, // Top Left Vertex 3
 
-    // // // //     Create Cube     // // // //
-    // Define vertices for the cube
-    GLfloat vertsA[] = {
-        // Vertex Positions    // Colors (r,g,b,a)
-        0.5f,  1.5f, -0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Back Top Right Vertex 0
-         0.5f, -0.5f, 0.0f,   0.2f, .7f, 0.2f, 1.0f, // Front Bottom Right 1
-        -0.5f, -0.5f, 0.0f,   0.2f, 0.2f, 0.7f, 1.0f, // Front Bottom Left 2
-         0.5f, -0.5f, -1.0f,  0.5f, 0.5f, 1.0f, 1.0f, // Back Bottom Right 3
-        -0.5f, -0.5f, -1.0f,  0.7f, 0.2f, 0.7f, 1.0f,  // Back Bottom Left 4
-        0.5f,  1.5f, 0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Front Top Right Vertex 5
-        -0.5f,  1.5f, -0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Back Top Left Vertex 6
-        -0.5f,  1.5f, 0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Front Top Left Vertex 7
+        //Back Face                                                                
+        topRight.x,  topRight.y, topRight.z - depth,             1.0f, 0.0f, 0.0f, 0.8f, // Top Right Vertex 4
+        bottomLeft.x, bottomLeft.y, bottomLeft.z - depth,     0.0f, 1.0f, 0.0f, 0.8f, // Bottom Left Vertex 5
+        bottomRight.x, bottomRight.y, bottomRight.z - depth,        0.0f, 0.0f, 1.0f, 0.8f, // Bottom Right Vertex 6
+        topLeft.x,  topLeft.y, topLeft.z - depth,                1.0f, 0.0f, 1.0f, 0.8f  // Top Left Vertex 7
     };
 
-    // Define indices for the cube
-    GLushort indicesA[] = {
-        0, 1, 3,  // Triangle 1 (right side)
-        0, 5, 1,   // Triangle 2 (right side)
-        2, 4, 6,  // Triangle 3 (left side)
-        2, 7, 6,  // Triangle 4 (left side)
-        1, 2, 3, // Triangle 5 (bottom)
-        3, 4, 2,  // Triangle 6 (bottom)
-        5, 6, 7,  // Triangle 7 (top)
-        5, 0, 6,  // Triangle 8 (top)
-        0, 3, 4,  // Triangle 9 (back)
-        0, 6, 3,  // Triangle 10 (back)
-        1, 2, 5,  // Triangle 11 (front)
-        2, 7, 5,  // Triangle 12 (front)
+    GLushort indices[] = {
+        0, 1, 3,  // Triangle 1 (front)
+        3, 2, 1,   // Triangle 2 (front)
+        4, 5, 7,  // Triangle 3 (back)
+        7, 6, 5,  // Triangle 4 (back)
+        0, 4, 7, //Triangle 5 (top)
+        7, 3, 0,  //Triangle 6 (top)
+        1, 2, 5, //Triangle 7 (bottom)
+        5, 6, 2, //Triangle 8 (bottom)
+        0, 1, 5, //Triangle 9 (right)
+        0, 4, 5, //Triangle 10 (right)
+        3, 2, 6, //Triangle 11 (left)
+        3, 7, 6 //Triangle 12 (left)
     };
-
-    // Create VAO and buffers for the cube
-    glGenVertexArrays(1, &cubeVAO);
-    glBindVertexArray(cubeVAO);
-
-    glGenBuffers(1, &pyramidEBO); // Create 2 buffers for the cube
-    glBindBuffer(GL_ARRAY_BUFFER, pyramidEBO); // Activate the buffer for vertex data
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertsA), vertsA, GL_STATIC_DRAW); // Send vertex data to the GPU
-
-    cubeIndicesCount = sizeof(indicesA) / sizeof(indicesA[0]);
-
-
-    // // // //     Create Pyramid     // // // //
-    // Specifies Normalized Device Coordinates (x,y,z) and color (r,g,b,a) for vertices
-    GLfloat vertsB[] =
-    {
-        // Vertex Positions    // Colors (r,g,b,a)
-         0.0f,  1.4f, -0.5f,   0.7f, 0.2f, 0.2f, 1.0f, // Top Vertex 0
-         0.5f, -0.5f, 0.0f,   0.2f, .7f, 0.2f, 1.0f, // Bottom Right 1
-        -0.5f, -0.5f, 0.0f,   0.2f, 0.2f, 0.7f, 1.0f, // Bottom Left 2
-         0.5f, -0.5f, -1.0f,  0.5f, 0.5f, 1.0f, 1.0f, // Back Bottom Right 3
-        -0.5f, -0.5f, -1.0f,  0.7f, 0.2f, 0.7f, 1.0f  // Back Bottom Left 4
-    };
-
-    // Index data to share position data
-    GLushort indicesB[] = {
-        0, 1, 3,  // Triangle 1 (left side)
-        0, 2, 4,   // Triangle 2 (right side)
-        0, 1, 2,  // Triangle 3 (front side)
-        0, 3, 4,  // Triangle 4 (back side)
-        3, 4, 2, // Triangle 5 (bottom)
-        1, 2, 3,  // Triangle 6 (bottom)
-    };
-    // Create separate VBO and EBO for the pyramid
-    glGenBuffers(2, &pyramidVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, pyramidVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertsB), vertsB, GL_STATIC_DRAW);
-
-    glGenVertexArrays(1, &pyramidVAO);
-    glBindVertexArray(pyramidVAO);
-
-    glGenBuffers(1, &pyramidEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pyramidEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indicesB), indicesB, GL_STATIC_DRAW);
-
-    pyramidIndicesCount = sizeof(indicesB) / sizeof(indicesB[0]);
-
-
-
     const GLuint floatsPerVertex = 3;
     const GLuint floatsPerColor = 4;
 
+    glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
+    glBindVertexArray(mesh.vao);
 
-    //Strides between vertex coordinates: (x, y, z, r, g, b, a). Tightly packed strides are 0
+    // Create buffers for vertex data and index data
+    glGenBuffers(2, mesh.vbos);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
+    mesh.nIndices = sizeof(indices) / sizeof(indices[0]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.vbos[1]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Strides between vertex coordinates
     GLint stride = sizeof(float) * (floatsPerVertex + floatsPerColor);
 
-
-    // Creates the Vertex Attribute Pointer
+    // Create Vertex Attribute Pointers
     glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
     glEnableVertexAttribArray(0);
 
@@ -336,12 +469,11 @@ void UCreateMesh(GLMesh& mesh)
 void UDestroyMesh(GLMesh& mesh)
 {
     glDeleteVertexArrays(1, &mesh.vao);
-    glDeleteBuffers(1, &mesh.vbos[0]); // Update this line to delete the correct buffer
-    glDeleteBuffers(1, &mesh.vbos[1]); // Update this line to delete the correct buffer
-
+    glDeleteBuffers(2, mesh.vbos);
 }
 
 
+// Implements the UCreateShaders function
 bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSource, GLuint& programId)
 {
     // Compilation and linkage error reporting
@@ -359,8 +491,8 @@ bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSou
     glShaderSource(vertexShaderId, 1, &vtxShaderSource, NULL);
     glShaderSource(fragmentShaderId, 1, &fragShaderSource, NULL);
 
-    // Compile vertex shader and print errors
-    glCompileShader(vertexShaderId);
+    glCompileShader(vertexShaderId); // compile the vertex shader
+    // check for shader compile errors
     glGetShaderiv(vertexShaderId, GL_COMPILE_STATUS, &success);
     if (!success)
     {
@@ -370,7 +502,7 @@ bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSou
         return false;
     }
 
-    glCompileShader(fragmentShaderId);
+    glCompileShader(fragmentShaderId); // compile the fragment shader
     // check for shader compile errors
     glGetShaderiv(fragmentShaderId, GL_COMPILE_STATUS, &success);
     if (!success)
@@ -381,11 +513,11 @@ bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSou
         return false;
     }
 
-    // Attach compiled shaders to the shader program
+    // Attached compiled shaders to the shader program
     glAttachShader(programId, vertexShaderId);
     glAttachShader(programId, fragmentShaderId);
 
-    glLinkProgram(programId);   //Link the shader program
+    glLinkProgram(programId);   // links the shader program
     // check for linking errors
     glGetProgramiv(programId, GL_LINK_STATUS, &success);
     if (!success)
