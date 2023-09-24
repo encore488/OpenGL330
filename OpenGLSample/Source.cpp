@@ -23,6 +23,7 @@ using namespace std;
 
 #define SCREEN_WIDTH 1100
 #define SCREEN_HEIGHT 800
+#define PI 3.14159265359
 
 namespace
 {
@@ -67,15 +68,19 @@ namespace
 
     //Declare each mesh
     GLMesh basilMesh;
+    GLMesh basilLidMesh;
     GLMesh cayenneMesh;
+    GLMesh cayenneLidMesh;
     GLMesh pepperMesh;
     GLMesh mugMesh;
+    GLMesh mugLidMesh;
     GLMesh padMesh;
     GLMesh knitMesh;
+    GLMesh tableMesh;
 
     //VAOs and VBOs for each mesh
-    unsigned int VBOknit, VBObasil, VBOcayenne, VBOpepper, VBOmug, VBOpad;
-    unsigned int VAOknit, VAOcayenne, VAOpepper, VAOmug, VAOpad, VAObasil;
+    unsigned int VBOknit, VBObasil, VBOcayenne, VBOpepper, VBOmug, VBOpad, VBOtable;
+    unsigned int VAOknit, VAOcayenne, VAOpepper, VAOmug, VAOpad, VAObasil, VAOtable;
 
     //Camera variables
     glm::vec3 gCameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
@@ -111,6 +116,9 @@ void UMouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void UCreatePlaneMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bottomLeft, GLCoord bottomRight);
 void UCreateCubeMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bottomLeft, GLCoord bottomRight, GLfloat depth);
+void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat depth);
+void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width);
+
 void UDestroyMesh(GLMesh& mesh);
 void URender();
 bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSource, GLuint& programId);
@@ -160,8 +168,12 @@ int main(int argc, char* argv[])
     struct GLCoord topLeft = { 1.0f, 1.3f, 0.2f };
     struct GLCoord bottomLeft = { 1.0f, -0.5f, 0.2f };
     struct GLCoord bottomRight = { 2.0f, -0.5f, 0.7f };
-    // Create the mesh
+    struct GLCoord lidCenterBase = { 1.5f, 1.3f, 1.45f };
+    // Create the meshs
+    UCreatePlaneMesh(tableMesh, {25.0f, -3.0f, 25.0f}, { -25.0f, -3.0f, 25.0f }, { -25.0f, -3.0f, -25.0f }, { 25.0f, -3.0f, -25.0f });
+    UCreatePyramidMesh(knitMesh, { 0.0f, 0.0f, 0.0f }, 1.0f, 1.0f);
     UCreateCubeMesh(basilMesh, topRight, topLeft, bottomRight, bottomLeft, 1.0f); // Calls the function to create the Vertex Buffer Object
+    //UCreateCylinderMesh(basilMesh, 0.6f, lidCenterBase, 0.3f);
     //Coordinates for CAYENNE
     topRight = { -1.0f, 1.3f, 0.2f };
     topLeft = { -2.0f, 1.3f, 0.7f };
@@ -184,7 +196,7 @@ int main(int argc, char* argv[])
         //set projections for perspective and ortho
         perspective = glm::perspective(glm::radians(gCamera.Zoom), (GLfloat)WINDOW_WIDTH / (GLfloat)WINDOW_HEIGHT, 0.1f, 100.0f);
         ortho = glm::ortho(-2.0f, +2.0f, -2.0f, +2.0f, 0.1f, 100.0f);
-       
+
         // per frame timing
         float currentFrame = glfwGetTime();
         gDeltaTime = currentFrame - gLastFrame;
@@ -208,7 +220,7 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
 
-        
+
         // input
         // -----
         UProcessInput(gWindow);
@@ -216,8 +228,8 @@ int main(int argc, char* argv[])
             projection = perspective;
         }
         else {
-			projection = ortho;
-		}
+            projection = ortho;
+        }
 
         // Render this frame
         URender();
@@ -229,6 +241,12 @@ int main(int argc, char* argv[])
     // Release mesh data. Who knows what will happen if you keep it?
     UDestroyMesh(basilMesh);
     UDestroyMesh(cayenneMesh);
+    UDestroyMesh(basilLidMesh);
+    UDestroyMesh(padMesh);
+    UDestroyMesh(knitMesh);
+    UDestroyMesh(mugMesh);
+    UDestroyMesh(pepperMesh);
+    UDestroyMesh(tableMesh);
 
     exit(EXIT_SUCCESS); // Terminates the program successfully
 }
@@ -288,19 +306,25 @@ bool UInitialize(int argc, char* argv[], GLFWwindow** window)
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 void UProcessInput(GLFWwindow* window)
 {
-    static const float cameraSpeed = 2.5f;
+    static const float cameraSpeed = 1.8f;
 
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
         gCamera.ProcessKeyboard(FORWARD, gDeltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
         gCamera.ProcessKeyboard(BACKWARD, gDeltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
         gCamera.ProcessKeyboard(LEFT, gDeltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
         gCamera.ProcessKeyboard(RIGHT, gDeltaTime);
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(UP, gDeltaTime);
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(DOWN, gDeltaTime);
+    //if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+        //shootLaser();
 }
 
 
@@ -396,12 +420,24 @@ void URender()
     glBindVertexArray(basilMesh.vao);
     glDrawElements(GL_TRIANGLES, basilMesh.nIndices, GL_UNSIGNED_SHORT, NULL);
     glBindVertexArray(0);
+    //  glBindVertexArray(basilLidMesh.vao);
+      //glDrawElements(GL_TRIANGLES, basilLidMesh.nIndices, GL_UNSIGNED_SHORT, NULL);
+      //glBindVertexArray(0);
+    
     //CAYENNE
     glBindVertexArray(cayenneMesh.vao);
     glDrawElements(GL_TRIANGLES, cayenneMesh.nIndices, GL_UNSIGNED_SHORT, NULL);
     glBindVertexArray(0);
+    
+    //KNIT
+    glBindVertexArray(knitMesh.vao);
+    glDrawElements(GL_TRIANGLES, knitMesh.nIndices, GL_UNSIGNED_SHORT, NULL);
+    glBindVertexArray(0);
 
-
+	//TABLE
+    glBindVertexArray(tableMesh.vao);
+    glDrawElements(GL_TRIANGLES, tableMesh.nIndices, GL_UNSIGNED_SHORT, NULL);
+    glBindVertexArray(0);
 
     //Swap buffers every frame. One is being transformed while the other is displayed
     glfwSwapBuffers(gWindow);
@@ -464,6 +500,119 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bo
     glVertexAttribPointer(1, floatsPerColor, GL_FLOAT, GL_FALSE, stride, (char*)(sizeof(float) * floatsPerVertex));
     glEnableVertexAttribArray(1);
 }
+
+void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
+{
+    // Vertex data
+    GLfloat verts[] = {
+        top.x,  top.y, top.z,                     1.0f, 0.0f, 0.0f, 0.3f, // Top Point Vertex 0
+        top.x - width, top.y - height, top.z - width,             0.0f, 1.0f, 0.0f, 0.8f, // Front Bottom Left Vertex 1
+        top.x + width, top.y - height, top.z - width,                0.0f, 0.0f, 1.0f, 0.9f, // Front Bottom Right Vertex 2  
+        top.x - width, top.y - height, top.z + width,                1.0f, 0.0f, 1.0f, 0.2f,  // Back Left Vertex 3
+        top.x + width, top.y - height, top.z + width,			 0.0f, 1.0f, 0.0f, 0.3f // Back Bottom Right Vertex 4
+    };
+
+    GLushort indices[] = {
+        0, 1, 2,  // Triangle 1 (front)
+        0, 1, 3,   // Triangle 2 (left)
+        0, 2, 4,  // Triangle 3 (right)
+        0, 3, 4,  // Triangle 4 (back)
+        1, 3, 2, //Triangle 5 (bottom)
+        2, 4, 3  //Triangle 6 (bottom)
+    };
+    const GLuint floatsPerVertex = 3;
+    const GLuint floatsPerColor = 4;
+
+    glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
+    glBindVertexArray(mesh.vao);
+
+    // Create buffers for vertex data and index data
+    glGenBuffers(2, mesh.vbos);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
+    mesh.nIndices = sizeof(indices) / sizeof(indices[0]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.vbos[1]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // Strides between vertex coordinates
+    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerColor);
+
+    // Create Vertex Attribute Pointers
+    glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, floatsPerColor, GL_FLOAT, GL_FALSE, stride, (char*)(sizeof(float) * floatsPerVertex));
+    glEnableVertexAttribArray(1);
+}
+
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat depth)
+{
+    const int numPoints = 60;
+    GLfloat angleIncrement = 2 * PI / numPoints;
+
+    // Create vertices for each side of the cylinder
+    for (int i = 0; i <= numPoints; i++) {
+        GLfloat x = base.x + radius * cos(i * angleIncrement);  //Coordinates for left side of this plane
+        GLfloat z = base.z + radius * sin(i * angleIncrement);
+        GLfloat y1 = base.y;
+        GLfloat y2 = base.y + depth;
+        GLCoord topL = {x, y1, z};
+        GLCoord botL = {x, y2, z};
+        GLfloat x2 = base.x + radius * cos((i+1) * angleIncrement);  //Coordinates for right side
+        GLfloat z2 = base.z + radius * sin((i+1) * angleIncrement);
+        GLCoord topR = {x2, y1, z2};
+        GLCoord botR = {x2, y2, z2};
+        GLMesh thisPlane;
+        UCreatePlaneMesh(thisPlane, topR, topL, botL, botR);
+    }
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void UCreatePlaneMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bottomLeft, GLCoord bottomRight) {
+    const GLuint floatsPerVertex = 3;
+    const GLuint floatsPerColor = 4;
+
+    GLfloat verts[] = {
+		//Front Face
+		topRight.x,  topRight.y, topRight.z,                     0.2f, 0.1f, 0.1f, 1.0f, // Top Right Vertex 0
+		bottomLeft.x, bottomLeft.y, bottomLeft.z,             0.1f, 0.2f, 0.2f, 1.0f, // Bottom Left Vertex 1
+		bottomRight.x, bottomRight.y, bottomRight.z,                0.2f, 0.2f, 0.3f, 1.0f, // Bottom Right Vertex 2
+		topLeft.x,  topLeft.y, topLeft.z,                        0.2f, 0.3f, 0.2f, 1.0f, // Top Left Vertex 3
+	};
+
+    GLushort indices[] = {
+		0, 2, 3,  // Triangle 1
+		3, 1, 2   // Triangle 2 
+	};
+
+	glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
+	glBindVertexArray(mesh.vao);
+
+	// Create buffers for vertex data and index data
+	glGenBuffers(2, mesh.vbos);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
+	mesh.nIndices = sizeof(indices) / sizeof(indices[0]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.vbos[1]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	// Strides between vertex coordinates
+	GLint stride = sizeof(float) * (floatsPerVertex + floatsPerColor);
+
+	// Create Vertex Attribute Pointers
+	glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, floatsPerColor, GL_FLOAT, GL_FALSE, stride, (char*)(sizeof(float) * floatsPerVertex));
+	glEnableVertexAttribArray(1);
+}
+
+
 
 
 void UDestroyMesh(GLMesh& mesh)
@@ -538,3 +687,4 @@ void UDestroyShaderProgram(GLuint programId)
 {
     glDeleteProgram(programId);
 }
+
