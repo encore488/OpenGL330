@@ -123,7 +123,7 @@ void UMouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void UCreatePlaneMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bottomLeft, GLCoord bottomRight);
 void UCreateCubeMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bottomLeft, GLCoord bottomRight, GLfloat depth);
-//void UCreateCylinderMesh(GLMesh& mesh, float radius, float depth);
+void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat depth);
 void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width);
 void UDestroyMesh(GLMesh& mesh);
 void URender();
@@ -207,12 +207,12 @@ int main(int argc, char* argv[])
     struct GLCoord topLeft = { 1.0f, -0.5f, 0.2f };
     struct GLCoord bottomLeft = { 1.0f, -2.99f, 0.2f };
     struct GLCoord bottomRight = { 2.0f, -2.99f, 0.7f };
-    struct GLCoord lidCenterBase = { 1.5f, -0.51f, 1.45f };
+    struct GLCoord lidCenterBase = { 1.5f, -0.51f, -0.05f };
     // Create the meshs
     UCreatePlaneMesh(tableMesh, { 25.0f, -3.0f, 25.0f }, { -25.0f, -3.0f, 25.0f }, { -25.0f, -3.0f, -25.0f }, { 25.0f, -3.0f, -25.0f });
     UCreatePyramidMesh(knitMesh, { 0.0f, 0.0f, 0.0f }, 1.0f, 1.0f);
     UCreateCubeMesh(basilMesh, topRight, topLeft, bottomRight, bottomLeft, 1.0f);
-    //  UCreateCylinderMesh(basilLidMesh, 3.0f, 6.0f);
+    UCreateCylinderMesh(basilLidMesh, 0.7f, lidCenterBase, 0.4f);
       //Coordinates for CAYENNE
     topRight = { -2.0f, -0.5f, 0.2f };
     topLeft = { -3.0f, -0.5f, 0.7f };
@@ -282,7 +282,6 @@ int main(int argc, char* argv[])
 
 
         // input
-        // -----
         UProcessInput(gWindow);
         if (isPerspective) {
             projection = perspective;
@@ -621,6 +620,8 @@ void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width
         //Back Face
        top.x + width, top.y - height, top.z + width,  0.0f, 1.0f, 0.0f, 0.8f,  1.0f, 0.0f,  // Back Right Vertex 7
        top.x - width, top.y - height, top.z + width,  1.0f, 0.0f, 1.0f, 0.2f,  0.0f, 0.0f,  // Back Left Vertex 8
+       //Bottom
+       top.x + width, top.y - height, top.z + width,  0.0f, 1.0f, 0.0f, 0.8f,  1.0f, 1.0f,  // Back Right Vertex 9
 
     };
 
@@ -629,8 +630,8 @@ void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width
         0, 3, 4,   // Triangle 2 (right)
         0, 5, 6,  // Triangle 3 (left)
         0, 7, 8,  // Triangle 4 (back)
-        1, 2, 3, //Triangle 5 (bottom)
-        3, 6, 5  //Triangle 6 (bottom)
+        1, 2, 9, //Triangle 5 (bottom)
+        9, 6, 5  //Triangle 6 (bottom)
     };
     const GLuint floatsPerVertex = 3;
     const GLuint floatsPerColor = 4;
@@ -653,9 +654,6 @@ void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width
     // Create Vertex Attribute Pointers
     glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
     glEnableVertexAttribArray(0);
-
-//    glVertexAttribPointer(1, floatsPerColor, GL_FLOAT, GL_FALSE, stride, (char*)(sizeof(float) * floatsPerVertex));
-  //  glEnableVertexAttribArray(1);
 
     glVertexAttribPointer(2, floatsPerUV, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * (floatsPerVertex + floatsPerColor)));
     glEnableVertexAttribArray(2);
@@ -707,177 +705,82 @@ void UDestroyTexture(GLuint textureId)
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*void UCreateCylinderMesh(GLuint& vao, GLuint& vbo, GLuint& ebo, float radius, float height) {
-    // Generate vertices and indices for the cylinder
-    std::vector<GLfloat> vertices;
-    std::vector<GLuint> indices;
-    int segments = 60;
+void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat height) {
+    const int numPoints = 60;
+    GLfloat angleIncrement = 2 * PI / numPoints;
+    std::vector<GLfloat> verts;
+    std::vector<GLushort> indices;
 
-    for (int i = 0; i < segments; ++i) {
-        float angle = static_cast<float>(i) / segments * 2 * PI;
-        float x = radius * cos(angle);
-        float y = radius * sin(angle);
+    //Let the first indice be the center of the bottom circle, then the second should be center of the top circle
+    verts.push_back(base.x);
+    verts.push_back(base.y);
+    verts.push_back(base.z);
+    verts.push_back(base.x);
+    verts.push_back(base.y + height);
+    verts.push_back(base.z);
 
-        // Bottom vertex
-        vertices.push_back(x);
-        vertices.push_back(y);
-        vertices.push_back(0.0f);
-        // Bottom vertex color (you can customize this)
-        vertices.push_back(1.0f);  // Red
-        vertices.push_back(0.0f);  // Green
-        vertices.push_back(0.0f);  // Blue
-
-        // Top vertex
-        vertices.push_back(x);
-        vertices.push_back(y);
-        vertices.push_back(height);
-        // Top vertex color (you can customize this)
-        vertices.push_back(0.0f);  // Red
-        vertices.push_back(0.0f);  // Green
-        vertices.push_back(1.0f);  // Blue
+    // Create vertices for the sides
+    for (int i = 0; i < numPoints; ++i) {
+        GLfloat x = base.x + radius * cos(i * angleIncrement);
+        GLfloat z = base.z + radius * sin(i * angleIncrement);
+        //Bottom side 1
+        verts.push_back(x);
+        verts.push_back(base.y);
+        verts.push_back(z);
+        //Top Side 1
+        verts.push_back(x);
+        verts.push_back(base.y + height);
+        verts.push_back(z);
     }
 
-    // Create indices for the cylinder's triangles
-    for (int i = 0; i < segments; ++i) {
-        GLuint current = i * 2;
-        GLuint next = (i * 2 + 2) % (segments * 2);
+    // Connect the vertices to form the cylinder, one slice at a time
+    for (int i = 0; i < (numPoints - 1); ++i) {
+        int bottomVert = 2 * i + 2;
+        int topVert = 2 * i + 3;
+        int nextBottomVert = bottomVert + 2;
+        int nextTopVert = topVert + 2;
 
-        // Bottom triangle
-        indices.push_back(current);
-        indices.push_back(next);
-        indices.push_back(current + 1);
+        //Bottom Pie Slice
+        indices.push_back(0);
+        indices.push_back(bottomVert);
+        indices.push_back(nextBottomVert);
 
-        // Top triangle
-        indices.push_back(current + 1);
-        indices.push_back(next);
-        indices.push_back(next + 1);
+        //Top Pie Slice
+        indices.push_back(1);
+        indices.push_back(nextTopVert);
+        indices.push_back(topVert);
+
+        //Side 1
+        indices.push_back(bottomVert);
+        indices.push_back(nextBottomVert);
+        indices.push_back(topVert);
+
+        //Side 2
+        indices.push_back(nextBottomVert);
+        indices.push_back(topVert);
+        indices.push_back(nextTopVert);
     }
 
-    // Create and bind the VAO
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+    // Generate VAO and VBOs
+    glGenVertexArrays(1, &mesh.vao);
+    glBindVertexArray(mesh.vao);
 
-    // Create and bind the VBO
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+    glGenBuffers(1, &mesh.vbos[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GLfloat), verts.data(), GL_STATIC_DRAW);
 
-    // Create and bind the EBO
-    glGenBuffers(1, &ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
+    glGenBuffers(1, &mesh.vbos[1]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.vbos[1]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLushort), indices.data(), GL_STATIC_DRAW);
 
-    // Set vertex attribute pointers
-    // Position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)0);
-    glEnableVertexAttribArray(0);
-    // Color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-
-    // Unbind the VAO
-    glBindVertexArray(0);
-}
-*/
-
-/*
-void UCreateCylinderMesh(GLuint& vao, GLuint& vbo, GLuint& ebo, float radius, float height) {
-    // Generate vertices and indices for the cylinder
-    int segments = 60;
-    std::vector<GLfloat> vertices;
-    std::vector<GLuint> indices;
-
-    for (int i = 0; i < segments; ++i) {
-        float angle = static_cast<float>(i) / segments * 2 * PI;
-        float x = radius * cos(angle);
-        float y = radius * sin(angle);
-
-        // Bottom vertex
-        vertices.push_back(x);
-        vertices.push_back(y);
-        vertices.push_back(0.0f);
-
-        // Top vertex
-        vertices.push_back(x);
-        vertices.push_back(y);
-        vertices.push_back(height);
-    }
-
-    // Create indices for the cylinder's triangles
-    for (int i = 0; i < segments; ++i) {
-        GLuint current = i * 2;
-        GLuint next = (i * 2 + 2) % (segments * 2);
-
-        // Bottom triangle
-        indices.push_back(current);
-        indices.push_back(next);
-        indices.push_back(current + 1);
-
-        // Top triangle
-        indices.push_back(current + 1);
-        indices.push_back(next);
-        indices.push_back(next + 1);
-    }
-
-    // Create and bind the VAO
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    // Create and bind the VBO
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
-
-    // Create and bind the EBO
-    glGenBuffers(1, &ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
-
-    // Set vertex attribute pointers
+    // Vertex attribute pointers
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // Unbind the VAO
+    mesh.nIndices = indices.size();
     glBindVertexArray(0);
-}*/
-///////////////////////////////////////////////////////////////////////////////////////////
-/*        GLfloat x = base.x + radius * cos(i * angleIncrement);  //Coordinates for left side of this plane
-        GLfloat z = base.z + radius * sin(i * angleIncrement);
-        GLfloat y1 = base.y;
-        GLfloat y2 = base.y + depth;
-        GLCoord topL = {x, y1, z};
-        GLCoord botL = {x, y2, z};
-        GLfloat x2 = base.x + radius * cos((i+1) * angleIncrement);  //Coordinates for right side
-        GLfloat z2 = base.z + radius * sin((i+1) * angleIncrement);
-        GLCoord topR = {x2, y1, z2};
-        GLCoord botR = {x2, y2, z2};
-        GLMesh thisPlane;
-        UCreatePlaneMesh(thisPlane, topR, topL, botL, botR);*/
-
-
-        /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat depth)
-{
-    const int numPoints = 60;
-    GLfloat angleIncrement = 2 * PI / numPoints;
-
-    // Create vertices for each side of the cylinder
-    for (int i = 0; i <= numPoints; i++) {
-        float theta = ((float)i) * 2.0 * PI;
-        float nextTheta = ((float)i + 1) * 2.0 * PI;
-        glBegin(GL_TRIANGLE_STRIP);
-        glVertex3f(0.0, depth, 0.0);
-        glVertex3f(radius * cos(theta), depth, radius * sin(theta));
-        glVertex3f(radius * cos(nextTheta), depth, radius * sin(nextTheta));
-        glVertex3f(radius * cos(nextTheta), -depth, radius * sin(nextTheta));
-        glVertex3f(radius * cos(theta), -depth, radius * sin(theta));
-        glVertex3f(0.0, -depth, 0.0);
-        glEnd();
-
-    }
 }
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void UCreatePlaneMesh(GLMesh& mesh, GLCoord topRight, GLCoord topLeft, GLCoord bottomLeft, GLCoord bottomRight) {
     const GLuint floatsPerVertex = 3;
