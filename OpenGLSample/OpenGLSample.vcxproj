@@ -74,6 +74,10 @@
     <IncludePath>C:\OpenGL\OpenGL\glm;C:\OpenGL\OpenGL\GLFW\include;C:\OpenGL\OpenGL\GLEW\include;C:\OpenGL\OpenGL\GLAD;$(IncludePath)</IncludePath>
     <LibraryPath>C:\OpenGL\OpenGL\GLFW\lib-vc2019;C:\OpenGL\OpenGL\GLEW\lib\Release\Win32;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>C:\OpenGL\OpenGL\glm;C:\OpenGL\OpenGL\GLFW\include;C:\OpenGL\OpenGL\GLEW\include;C:\OpenGL\OpenGL\GLAD;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\OpenGL\OpenGL\GLFW\lib-vc2019;C:\OpenGL\OpenGL\GLEW\lib\Release\Win32;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -96,6 +100,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;glu32.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -137,6 +142,7 @@
     <ClInclude Include="headerClass.h" />
     <ClInclude Include="linmath.h" />
     <ClInclude Include="mesh.h" />
+    <ClInclude Include="shader.h" />
     <ClInclude Include="stb_image.h" />
   </ItemGroup>
   <ItemGroup>
@@ -144,6 +150,7 @@
     <None Include="default.vert" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="..\..\..\..\Pictures\cayenneLabel.jpg" />
     <Image Include="..\..\..\..\Pictures\TheCounter.jpg" />
     <Image Include="..\..\..\..\Pictures\theStones.jpg" />
   </ItemGroup>
