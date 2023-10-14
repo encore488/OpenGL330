@@ -45,15 +45,29 @@ namespace
 
     // Main GLFW window
     GLFWwindow* gWindow = nullptr;
-    // Triangle mesh data
+    
+    ////////////////// Create OG mesh and assign all necessary values   //////////////////
     GLMesh gMesh;
-    GLMesh pyrMesh;
     // Texture
     GLuint gTextureId;
-    GLuint pyrTextureId;
-    GLuint cayenneTextureId;
-    glm::vec2 gUVScale(5.0f, 5.0f);
     GLint gTexWrapMode = GL_REPEAT;
+    // Subject position and scale
+    glm::vec3 gCubePosition(0.0f, 0.0f, 0.0f);
+    glm::vec3 gCubeScale(2.0f);
+    glm::vec2 gUVScale(1.0f, 1.0f);
+    //////////////////
+    
+    // Create Pyramid mesh
+    GLMesh pyrMesh;
+    GLuint pyrTextureId;
+    GLint pyrTexWrapMode = GL_REPEAT;
+    // Pyramid position and scale
+    glm::vec3 gPyramidPosition(3.0f, 0.0f, 3.0f);
+    glm::vec3 gPyramidScale(2.0f);
+    glm::vec2 gPyramidUVScale(6.0f, 6.0f);
+
+
+    GLuint cayenneTextureId;
 
     // Shader programs
     GLuint gCubeProgramId;
@@ -69,24 +83,21 @@ namespace
     float gDeltaTime = 0.0f; // time between current frame and last frame
     float gLastFrame = 0.0f;
 
-    // Subject position and scale
-    glm::vec3 gCubePosition(0.0f, 0.0f, 0.0f);
-    glm::vec3 gCubeScale(2.0f);
-    // Pyramid position and scale
-//    glm::vec3 gPyramidPosition(3.0f, 0.0f, 3.0f);
-//    glm::vec3 gPyramidScale(2.0f);
+    
 
     // Cube and light color
-    //m::vec3 gObjectColor(0.6f, 0.5f, 0.75f);
-    glm::vec3 gObjectColor(1.f, 0.2f, 0.0f);
-    glm::vec3 gLightColor(0.3f, 1.0f, 0.3f);
+    glm::vec3 gObjectColor(0.8f, 0.8f, 0.8f);
+    glm::vec3 gLightColor(0.7f, 1.0f, 0.7f);
+    glm::vec3 gFillLightColor(1.0f, 0.0f, 1.0f);
 
     // Light position and scale
     glm::vec3 gLightPosition(1.5f, 0.5f, 3.0f);
-    glm::vec3 gLightScale(0.3f);
+    glm::vec3 gLightScale(1.0f);
+    glm::vec3 gFillLightPosition(8.5f, 0.5f, 1.0f);
+    glm::vec3 gFillLightScale(0.1f);
 
     // Lamp animation
-    bool gIsLampOrbiting = true;
+    bool gIsLampOrbiting = false;
 }
 
 /* User-defined Function prototypes to:
@@ -160,7 +171,7 @@ void main()
     /*Phong lighting model calculations to generate ambient, diffuse, and specular components*/
 
     //Calculate Ambient lighting*/
-    float ambientStrength = 0.1f; // Set ambient or global lighting strength
+    float ambientStrength = 0.2f; // Set ambient or global lighting strength
     vec3 ambient = ambientStrength * lightColor; // Generate ambient light color
 
     //Calculate Diffuse lighting*/
@@ -255,7 +266,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
 
     // Load texture
-    const char* texFilename = "C://Users//encor//OneDrive//Pictures//cayenneLabel.jpg";
+    const char* texFilename = "C://Users//encor//OneDrive//Pictures//theCounter.jpg";
     if (!UCreateTexture(texFilename, gTextureId))
     {
         cout << "Failed to load texture " << texFilename << endl;
@@ -544,7 +555,7 @@ void URender()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Activate the cube VAO (used by cube and lamp)
+    // Activate the cube VAO (used by cube and lamps)
     glBindVertexArray(gMesh.vao);
 
     // CUBE: draw cube
@@ -573,13 +584,19 @@ void URender()
     // Reference matrix uniforms from the Cube Shader program for the cub color, light color, light position, and camera position
     GLint objectColorLoc = glGetUniformLocation(gCubeProgramId, "objectColor");
     GLint lightColorLoc = glGetUniformLocation(gCubeProgramId, "lightColor");
+    GLint fillLightColorLoc = glGetUniformLocation(gCubeProgramId, "fillLightColor");
     GLint lightPositionLoc = glGetUniformLocation(gCubeProgramId, "lightPos");
+    GLint fillLightPositionLoc = glGetUniformLocation(gCubeProgramId, "fillLightPos");
     GLint viewPositionLoc = glGetUniformLocation(gCubeProgramId, "viewPosition");
+
 
     // Pass color, light, and camera data to the Cube Shader program's corresponding uniforms
     glUniform3f(objectColorLoc, gObjectColor.r, gObjectColor.g, gObjectColor.b);
     glUniform3f(lightColorLoc, gLightColor.r, gLightColor.g, gLightColor.b);
     glUniform3f(lightPositionLoc, gLightPosition.x, gLightPosition.y, gLightPosition.z);
+    glUniform3f(fillLightColorLoc, gFillLightColor.r, gFillLightColor.g, gFillLightColor.b);
+    glUniform3f(fillLightPositionLoc, gFillLightPosition.x, gFillLightPosition.y, gFillLightPosition.z);
+
     const glm::vec3 cameraPosition = gCamera.Position;
     glUniform3f(viewPositionLoc, cameraPosition.x, cameraPosition.y, cameraPosition.z);
 
@@ -593,7 +610,7 @@ void URender()
     // Draws the triangles
     glDrawArrays(GL_TRIANGLES, 0, gMesh.nVertices);
 
-    // LAMP: draw lamp
+    // LAMP: draw key lamp
     //----------------
     glUseProgram(gLampProgramId);
 
@@ -612,9 +629,28 @@ void URender()
 
     glDrawArrays(GL_TRIANGLES, 0, gMesh.nVertices);
 
+
+    // LAMP: draw fill lamp
+
+    //Transform the smaller cube used as a visual que for the light source
+    model = glm::translate(gFillLightPosition) * glm::scale(gFillLightScale);
+
+    // Reference matrix uniforms from the Lamp Shader program
+    modelLoc = glGetUniformLocation(gLampProgramId, "model");
+    viewLoc = glGetUniformLocation(gLampProgramId, "view");
+    projLoc = glGetUniformLocation(gLampProgramId, "projection");
+
+    // Pass matrix data to the Lamp Shader program's matrix uniforms
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+    glDrawArrays(GL_TRIANGLES, 0, gMesh.nVertices);
+
     // Deactivate the Vertex Array Object and shader program
     glBindVertexArray(0);
     glUseProgram(0);
+
 
     // Pyramid Creation!
     glBindVertexArray(pyrMesh.vao);
@@ -651,7 +687,7 @@ void URender()
     glUniform3f(lightColorLoc2, gLightColor.r, gLightColor.g, gLightColor.b);
     glUniform3f(lightPositionLoc2, gLightPosition.x, gLightPosition.y, gLightPosition.z);
     glUniform3f(viewPositionLoc2, cameraPosition.x, cameraPosition.y, cameraPosition.z);
-    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gUVScale));
+    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gPyramidUVScale));
 
     // bind textures on corresponding texture units
     glActiveTexture(GL_TEXTURE0);
@@ -920,8 +956,8 @@ bool UCreateTexture(const char* filename, GLuint& textureId)
         glBindTexture(GL_TEXTURE_2D, textureId);
 
         // set the texture wrapping parameters
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, gTexWrapMode);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, gTexWrapMode);
         // set texture filtering parameters
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
