@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>     // GLFW library
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "shader.h"
 
 // GLM Math Header inclusions
 #include <glm/glm.hpp>
@@ -60,14 +61,18 @@ namespace
     // Create Pyramid mesh
     GLMesh pyrMesh;
     GLuint pyrTextureId;
-    GLint pyrTexWrapMode = GL_REPEAT;
     // Pyramid position and scale
     glm::vec3 gPyramidPosition(3.0f, 0.0f, 3.0f);
     glm::vec3 gPyramidScale(2.0f);
     glm::vec2 gPyramidUVScale(6.0f, 6.0f);
 
-
+    // Cayenne jar
+    GLMesh cayenneMesh;
     GLuint cayenneTextureId;
+    glm::vec3 gCayennePosition(-3.0f, 0.0f, 3.0f);
+    glm::vec3 gCayenneScale(2.0f);
+    glm::vec2 gCayenneUVScale(1.0f, 1.0f);
+
 
     // Shader programs
     GLuint gCubeProgramId;
@@ -85,19 +90,19 @@ namespace
 
     
 
-    // Cube and light color
+    // Cube and lights color
     glm::vec3 gObjectColor(0.8f, 0.8f, 0.8f);
     glm::vec3 gLightColor(0.7f, 1.0f, 0.7f);
     glm::vec3 gFillLightColor(1.0f, 0.0f, 1.0f);
 
-    // Light position and scale
-    glm::vec3 gLightPosition(1.5f, 0.5f, 3.0f);
+    // Lights position and scale
+    glm::vec3 gLightPosition(1.5f, 0.8f, 9.0f);
     glm::vec3 gLightScale(1.0f);
     glm::vec3 gFillLightPosition(8.5f, 0.5f, 1.0f);
     glm::vec3 gFillLightScale(0.1f);
 
     // Lamp animation
-    bool gIsLampOrbiting = false;
+    bool gIsLampOrbiting = true;
 }
 
 /* User-defined Function prototypes to:
@@ -113,6 +118,7 @@ void UMouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void UCreateMesh(GLMesh& mesh);    // Creates a "cube" with gTextureId in gTexWrapMode of gObjectColor, gCubePosition, and gCubeScale
 void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width);
+void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width);
 void UDestroyMesh(GLMesh& mesh);
 bool UCreateTexture(const char* filename, GLuint& textureId);
 void UDestroyTexture(GLuint textureId);
@@ -171,7 +177,7 @@ void main()
     /*Phong lighting model calculations to generate ambient, diffuse, and specular components*/
 
     //Calculate Ambient lighting*/
-    float ambientStrength = 0.2f; // Set ambient or global lighting strength
+    float ambientStrength = 0.3f; // Set ambient or global lighting strength
     vec3 ambient = ambientStrength * lightColor; // Generate ambient light color
 
     //Calculate Diffuse lighting*/
@@ -257,6 +263,7 @@ int main(int argc, char* argv[])
     // Create the mesh
     UCreateMesh(gMesh); // Calls the function to create the Vertex Buffer Object
     UCreatePyramidMesh(pyrMesh, { 3.0f, 1.0f, 3.0f }, 1.0f, 1.0f);
+    UCreateCubeMesh(cayenneMesh, { -3.0f, 2.0f, 3.0f }, 2.0f, 1.0f);
 
     // Create the shader programs
     if (!UCreateShaderProgram(cubeVertexShaderSource, cubeFragmentShaderSource, gCubeProgramId))
@@ -278,6 +285,13 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
 		cout << "Failed to load texture " << pyrTexFilename << endl;
 		return EXIT_FAILURE;
 	}
+	const char* cayenneTexFilename = "C://Users//encor//OneDrive//Pictures//cayenneLabel.jpg";
+    if (!UCreateTexture(cayenneTexFilename, cayenneTextureId))
+    {
+		cout << "Failed to load texture " << cayenneTexFilename << endl;
+		return EXIT_FAILURE;
+	}
+
 
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
     glUseProgram(gCubeProgramId);
@@ -310,10 +324,12 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
     // Release mesh data
     UDestroyMesh(gMesh);
     UDestroyMesh(pyrMesh);
+	UDestroyMesh(cayenneMesh);
 
     // Release texture
     UDestroyTexture(gTextureId);
     UDestroyTexture(pyrTextureId);
+    UDestroyTexture(cayenneTextureId);
 
     // Release shader programs
     UDestroyShaderProgram(gCubeProgramId);
@@ -539,10 +555,10 @@ void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 void URender()
 {
     // Lamp orbits around the origin
-    const float angularVelocity = glm::radians(45.0f);
+    const float angularVelocity = glm::radians(25.0f);
     if (gIsLampOrbiting)
     {
-        glm::vec4 newPosition = glm::rotate(angularVelocity * gDeltaTime, glm::vec3(0.0f, 1.0f, 0.0f)) * glm::vec4(gLightPosition, 1.0f);
+        glm::vec4 newPosition = glm::rotate(angularVelocity * gDeltaTime, glm::vec3(0.0f, 1.0f, 1.0f)) * glm::vec4(gLightPosition, 1.0f);
         gLightPosition.x = newPosition.x;
         gLightPosition.y = newPosition.y;
         gLightPosition.z = newPosition.z;
@@ -614,7 +630,6 @@ void URender()
     //----------------
     glUseProgram(gLampProgramId);
 
-    //Transform the smaller cube used as a visual que for the light source
     model = glm::translate(gLightPosition) * glm::scale(gLightScale);
 
     // Reference matrix uniforms from the Lamp Shader program
@@ -696,6 +711,33 @@ void URender()
     // Draws the triangles
     glDrawArrays(GL_TRIANGLES, 0, pyrMesh.nVertices);
     // ^^ Pyramid Creation ^^
+
+    // Cayenne Creation!
+    glBindVertexArray(cayenneMesh.vao);
+
+    // Set the shader to be used
+    glUseProgram(gCubeProgramId);
+
+
+    glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(model2));
+    glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view2));
+    glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(projection2));
+
+
+    // Pass color, light, and camera data to the Cube Shader program's corresponding uniforms
+    glUniform3f(objectColorLoc2, gObjectColor.r, gObjectColor.g, gObjectColor.b);
+    glUniform3f(lightColorLoc2, gLightColor.r, gLightColor.g, gLightColor.b);
+    glUniform3f(lightPositionLoc2, gLightPosition.x, gLightPosition.y, gLightPosition.z);
+    glUniform3f(viewPositionLoc2, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gCayenneUVScale));
+
+    // bind textures on corresponding texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, cayenneTextureId);
+
+    // Draws the triangles
+    glDrawArrays(GL_TRIANGLES, 0, cayenneMesh.nVertices);
+    // ^^ Cayenne Creation ^^
 
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -1057,3 +1099,4 @@ void UDestroyShaderProgram(GLuint programId)
 {
     glDeleteProgram(programId);
 }
+
