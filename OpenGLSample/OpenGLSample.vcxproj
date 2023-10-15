@@ -150,6 +150,8 @@
     <None Include="default.vert" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="..\..\..\..\..\Downloads\table.jpeg" />
+    <Image Include="..\..\..\..\..\Downloads\black.jpeg" />
     <Image Include="..\..\..\..\..\Downloads\cork.jpeg" />
     <Image Include="..\..\..\..\..\Downloads\basilLabel.jpeg" />
     <Image Include="..\..\..\..\Pictures\cayenneLabel.jpg" />

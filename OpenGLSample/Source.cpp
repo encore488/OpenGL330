@@ -1,7 +1,7 @@
 ﻿#include <iostream>         // cout, cerr
 #include <cstdlib>          // EXIT_FAILURE
-#include <GL/glew.h>        // GLEW library
-#include <GLFW/glfw3.h>     // GLFW library
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -12,28 +12,27 @@
 
 #include "camera.h"
 
-using namespace std; // Standard namespace
+using namespace std;
 
 /*Shader program Macro*/
 #ifndef GLSL
 #define GLSL(Version, Source) "#version " #Version " core \n" #Source
 #endif
 
-// Unnamed namespace
+
 namespace
 {
-    const char* const WINDOW_TITLE = "Tutorial 6.3"; // Macro for window title
-
-    // Variables for window width and height
-    const int WINDOW_WIDTH = 800;
-    const int WINDOW_HEIGHT = 600;
+    const char* const WINDOW_TITLE = "Window of Justice";
+    const int WINDOW_WIDTH = 1200;
+    const int WINDOW_HEIGHT = 800;
 
     // Stores the GL data relative to a given mesh
     struct GLMesh
     {
         GLuint vao;         // Handle for the vertex array object
-        GLuint vbo;         // Handle for the vertex buffer object
-        GLuint nVertices;    // Number of indices of the mesh
+        GLuint vbos[2];         // Handle for the vertex buffer object
+        GLuint nVertices;
+        GLuint nIndices;
     };
 
     //Store coordinates for points
@@ -42,36 +41,57 @@ namespace
         GLfloat y;
         GLfloat z;
     };
-
+    #define PI 3.14159265359
     // Main GLFW window
     GLFWwindow* gWindow = nullptr;
     
     ////////////////// Create basil mesh and assign all necessary values   //////////////////
     GLMesh basilMesh;
-    // Texture
     GLuint basilTextureId;
     GLint gTexWrapMode = GL_REPEAT;
-    // Subject position and scale
-    glm::vec3 gBasilPosition(-3.0f, 0.0f, 0.0f);
+    // Position and scale
+    glm::vec3 gBasilPosition(-3.0f, -0.2f, 0.0f);
     glm::vec3 gBasilScale(2.0f);
     glm::vec2 gUVScale(1.0f, 1.0f);
+
+    GLMesh basilLidMesh;
+    GLuint basilLidTextureId;
+    glm::vec3 gBasilLidPosition(-3.0f, 2.2f, 0.0f);
     //////////////////
     
-    // Create Pyramid mesh
+    // Create Pyramid mesh and assign all necessary values
     GLMesh pyrMesh;
     GLuint pyrTextureId;
     // Pyramid position and scale
-    glm::vec3 gPyramidPosition(3.0f, 0.0f, 0.0f);
+    glm::vec3 gPyramidPosition(3.0f, -0.2f, 0.0f);
     glm::vec3 gPyramidScale(2.0f);
     glm::vec2 gPyramidUVScale(6.0f, 6.0f);
+
+    // Create Circle mesh and assign all necessary values
+    GLMesh circleMesh;
+    GLuint circleTextureId;
+    glm::vec3 gCirclePosition(3.0f, 1.2f, 5.0f);
+    glm::vec3 gCircleScale(2.0f);
+    glm::vec2 gCircleUVScale(1.0f, 1.0f);
+
 
     // Cayenne jar
     GLMesh cayenneMesh;
     GLuint cayenneTextureId;
-    glm::vec3 gCayennePosition(-3.0f, 0.0f, 3.0f);
+    glm::vec3 gCayennePosition(-3.0f, -0.2f, 3.0f);
     glm::vec3 gCayenneScale(2.0f);
     glm::vec2 gCayenneUVScale(1.0f, 1.0f);
 
+    GLMesh cayenneLidMesh;
+    GLuint cayenneLidTextureId;
+    glm::vec3 gCayenneLidPosition(-3.0f, 2.2f, 3.0f);
+
+    // Table
+    GLMesh tableMesh;
+    GLuint tableTextureId;
+    glm::vec3 gTablePosition(-3.0f, -0.2f, 3.0f);
+    glm::vec3 gTableScale(2.0f);
+    glm::vec2 gTableUVScale(6.0f, 6.0f);
 
     // Shader programs
     GLuint gCubeProgramId;
@@ -91,12 +111,12 @@ namespace
 
     // Cube and lights color
     glm::vec3 gObjectColor(0.8f, 0.8f, 0.8f);
-    glm::vec3 gLightColor(0.7f, 1.0f, 0.7f);
+    glm::vec3 gLightColor(1.0f, 1.0f, 1.0f);
     glm::vec3 gFillLightColor(1.0f, 0.0f, 1.0f);
 
     // Lights position and scale
-    glm::vec3 gLightPosition(1.5f, 0.8f, 9.0f);
-    glm::vec3 gLightScale(1.0f);
+    glm::vec3 gLightPosition(1.5f, 0.8f, 2.0f);
+    glm::vec3 gLightScale(0.4f);
     glm::vec3 gFillLightPosition(8.5f, 0.5f, 1.0f);
     glm::vec3 gFillLightScale(0.1f);
 
@@ -114,10 +134,11 @@ void UResizeWindow(GLFWwindow* window, int width, int height);
 void UProcessInput(GLFWwindow* window);
 void UMousePositionCallback(GLFWwindow* window, double xpos, double ypos);
 void UMouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
-void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
-void UCreateMesh(GLMesh& mesh);    // Creates a "cube" with gTextureId in gTexWrapMode of gObjectColor, gCubePosition, and gCubeScale
+void UCreatePlaneMesh(GLMesh& mesh, GLCoord bl, GLCoord br, GLCoord fl, GLCoord fr);
 void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width);
 void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width);
+void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat depth);
+void UCreateCircleMesh(GLMesh& mesh, GLfloat radius, GLCoord center);
 void UDestroyMesh(GLMesh& mesh);
 bool UCreateTexture(const char* filename, GLuint& textureId);
 void UDestroyTexture(GLuint textureId);
@@ -260,9 +281,13 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
 
     // Create the mesh
-    UCreateCubeMesh(basilMesh, { -3.0f, 0.0f, 0.0f }, 2.0f, 1.0f);
+    UCreateCubeMesh(basilMesh, { -3.0f, 2.0f, 0.0f }, 2.0f, 1.0f);
     UCreatePyramidMesh(pyrMesh, { 3.0f, 1.0f, 3.0f }, 1.0f, 1.0f);
+    UCreateCircleMesh(circleMesh, 2.0f, { 3.0f, 1.2f, 5.0f });
     UCreateCubeMesh(cayenneMesh, { -3.0f, 2.0f, 3.0f }, 2.0f, 1.0f);
+    UCreatePlaneMesh(tableMesh, { -13.0f, 0.0f, -13.0f }, { 13.0f, 0.0f, -13.0f }, { -13.0f, 0.0f, 13.0f }, { 13.0f, 0.0f, 13.0f });
+    UCreateCubeMesh(basilLidMesh, { -3.0f, 3.0f, 0.0f }, 1.0f, 1.1f);
+    UCreateCubeMesh(cayenneLidMesh, { -3.0f, 3.0f, 3.0f }, 1.0f, 1.1f);
 
     // Create the shader programs
     if (!UCreateShaderProgram(cubeVertexShaderSource, cubeFragmentShaderSource, gCubeProgramId))
@@ -290,6 +315,18 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
 		cout << "Failed to load texture " << cayenneTexFilename << endl;
 		return EXIT_FAILURE;
 	}
+    const char* tableTexFilename = "C://Users//encor//Downloads//table.jpeg";
+    if (!UCreateTexture(tableTexFilename, tableTextureId))
+    {
+		cout << "Failed to load texture " << tableTexFilename << endl;
+		return EXIT_FAILURE;
+	}
+    const char* lidTexFilename = "C://Users//encor//Downloads//black.jpeg";
+    if (!UCreateTexture(lidTexFilename, basilLidTextureId))
+        {
+        cout << "Failed to load texture " << lidTexFilename << endl;
+			return EXIT_FAILURE;
+		}
 
 
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
@@ -324,11 +361,17 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
     UDestroyMesh(basilMesh);
     UDestroyMesh(pyrMesh);
 	UDestroyMesh(cayenneMesh);
+    UDestroyMesh(tableMesh);
+    UDestroyMesh(basilLidMesh);
+    UDestroyMesh(circleMesh);
+    UDestroyMesh(cayenneLidMesh);
 
     // Release texture
     UDestroyTexture(basilTextureId);
     UDestroyTexture(pyrTextureId);
     UDestroyTexture(cayenneTextureId);
+    UDestroyTexture(tableTextureId);
+    UDestroyTexture(basilLidTextureId);
 
     // Release shader programs
     UDestroyShaderProgram(gCubeProgramId);
@@ -642,6 +685,114 @@ void URender()
     glDrawArrays(GL_TRIANGLES, 0, cayenneMesh.nVertices);
     // ^^ Cayenne Creation ^^
 
+        // Cayenne Lid Creation!
+    glBindVertexArray(cayenneLidMesh.vao);
+
+    // Set the shader to be used
+    glUseProgram(gCubeProgramId);
+
+
+    glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(model2));
+    glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view2));
+    glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(projection2));
+
+
+    // Pass color, light, and camera data to the Cube Shader program's corresponding uniforms
+    glUniform3f(objectColorLoc2, gObjectColor.r, gObjectColor.g, gObjectColor.b);
+    glUniform3f(lightColorLoc2, gLightColor.r, gLightColor.g, gLightColor.b);
+    glUniform3f(lightPositionLoc2, gLightPosition.x, gLightPosition.y, gLightPosition.z);
+    glUniform3f(viewPositionLoc2, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gCayenneUVScale));
+
+    // bind textures on corresponding texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, basilLidTextureId);
+
+    // Draws the triangles
+    glDrawArrays(GL_TRIANGLES, 0, cayenneLidMesh.nVertices);
+    // ^^ Cayenne Lid Creation ^^
+
+            // Basil Lid Creation!
+    glBindVertexArray(basilLidMesh.vao);
+
+    // Set the shader to be used
+    glUseProgram(gCubeProgramId);
+
+
+    glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(model2));
+    glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view2));
+    glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(projection2));
+
+
+    // Pass color, light, and camera data to the Cube Shader program's corresponding uniforms
+    glUniform3f(objectColorLoc2, gObjectColor.r, gObjectColor.g, gObjectColor.b);
+    glUniform3f(lightColorLoc2, gLightColor.r, gLightColor.g, gLightColor.b);
+    glUniform3f(lightPositionLoc2, gLightPosition.x, gLightPosition.y, gLightPosition.z);
+    glUniform3f(viewPositionLoc2, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gUVScale));
+
+    // bind textures on corresponding texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, basilLidTextureId);
+
+    // Draws the triangles
+    glDrawArrays(GL_TRIANGLES, 0, basilLidMesh.nVertices);
+    // ^^ Basil Lid Creation ^^
+
+    // Table Creation!
+    glBindVertexArray(tableMesh.vao);
+
+    // Set the shader to be used
+    glUseProgram(gCubeProgramId);
+
+
+    glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(model2));
+    glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view2));
+    glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(projection2));
+
+
+    // Pass color, light, and camera data to the Cube Shader program's corresponding uniforms
+    glUniform3f(objectColorLoc2, gObjectColor.r, gObjectColor.g, gObjectColor.b);
+    glUniform3f(lightColorLoc2, gLightColor.r, gLightColor.g, gLightColor.b);
+    glUniform3f(lightPositionLoc2, gLightPosition.x, gLightPosition.y, gLightPosition.z);
+    glUniform3f(viewPositionLoc2, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gTableUVScale));
+
+    // bind textures on corresponding texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tableTextureId);
+
+    // Draws the triangles
+    glDrawArrays(GL_TRIANGLES, 0, tableMesh.nVertices);
+    // ^^ Table Creation ^^
+
+
+            // Circle Creation!
+    glBindVertexArray(circleMesh.vao);
+
+    // Set the shader to be used
+    glUseProgram(gCubeProgramId);
+
+
+    glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(model2));
+    glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view2));
+    glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(projection2));
+
+
+    // Pass color, light, and camera data to the Cube Shader program's corresponding uniforms
+    glUniform3f(objectColorLoc2, gObjectColor.r, gObjectColor.g, gObjectColor.b);
+    glUniform3f(lightColorLoc2, gLightColor.r, gLightColor.g, gLightColor.b);
+    glUniform3f(lightPositionLoc2, gLightPosition.x, gLightPosition.y, gLightPosition.z);
+    glUniform3f(viewPositionLoc2, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gTableUVScale));
+
+    // bind textures on corresponding texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tableTextureId);
+
+    // Draws the triangles
+    glDrawArrays(GL_TRIANGLES, 0, circleMesh.nVertices);
+            // ^^ Circle Creation ^^
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
     glfwSwapBuffers(gWindow);    // Flips the the back buffer with the front buffer every frame.
@@ -675,20 +826,20 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
       top.x - (width / 2), top.y - height,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
 
       //Left Face          //Negative X Normal
-     top.x - (width / 2),  top.y,  top.z + (width / 2), -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-     top.x - (width / 2),  top.y, top.z - (width / 2), -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-     top.x - (width / 2), top.y - height, top.z - (width / 2), -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     top.x - (width / 2), top.y - height, top.z - (width / 2), -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+     top.x - (width / 2),  top.y,  top.z + (width / 2), -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+     top.x - (width / 2),  top.y, top.z - (width / 2), -1.0f,  0.0f,  0.0f,  0.5f, 1.0f,
+     top.x - (width / 2), top.y - height, top.z - (width / 2), -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+     top.x - (width / 2), top.y - height, top.z - (width / 2), -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
      top.x - (width / 2), top.y - height,  top.z + (width / 2), -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-     top.x - (width / 2),  top.y,  top.z + (width / 2), -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+     top.x - (width / 2),  top.y,  top.z + (width / 2), -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
 
      //Right Face         //Positive X Normal
-     top.x + (width / 2),  top.y,  top.z + (width / 2),  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-     top.x + (width / 2),  top.y, top.z - (width / 2),  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-     top.x + (width / 2), top.y - height, top.z - (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     top.x + (width / 2), top.y - height, top.z - (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+     top.x + (width / 2),  top.y,  top.z + (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
+     top.x + (width / 2),  top.y, top.z - (width / 2),  1.0f,  0.0f,  0.0f,  0.5f, 1.0f,
+     top.x + (width / 2), top.y - height, top.z - (width / 2),  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,  //Bottom Front?
+     top.x + (width / 2), top.y - height, top.z - (width / 2),  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
      top.x + (width / 2), top.y - height,  top.z + (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-     top.x + (width / 2),  top.y,  top.z + (width / 2),  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+     top.x + (width / 2),  top.y,  top.z + (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
 
      //Bottom Face        //Negative Y Normal
     top.x - (width / 2), top.y - height, top.z - (width / 2),  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
@@ -717,8 +868,8 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
     glBindVertexArray(mesh.vao);
 
     // Create 2 buffers: first one for the vertex data; second one for the indices
-    glGenBuffers(1, &mesh.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo); // Activates the buffer
+    glGenBuffers(1, &mesh.vbos[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
 
     // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
@@ -781,8 +932,49 @@ void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width
     glBindVertexArray(mesh.vao);
 
     // Create 2 buffers: first one for the vertex data; second one for the indices
-    glGenBuffers(1, &mesh.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo); // Activates the buffer
+    glGenBuffers(1, &mesh.vbos[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
+
+    // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
+    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerNormal + floatsPerUV);// The number of floats before each
+
+    // Create Vertex Attribute Pointers
+    glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, floatsPerNormal, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * floatsPerVertex));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, floatsPerUV, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * (floatsPerVertex + floatsPerNormal)));
+    glEnableVertexAttribArray(2);
+}
+
+void UCreatePlaneMesh(GLMesh& mesh, GLCoord bl, GLCoord br, GLCoord fl, GLCoord fr)
+{
+    // Position and Color data
+    GLfloat verts[] = {
+       //Coordinates       // Normals         //Texture Coords.
+       bl.x, bl.y, bl.z,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,    //Back Left
+       br.x, br.y, br.z,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,    //Back Right
+       fr.x, fr.y,  fr.z,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,	 //Front Right
+       fr.x, fr.y,  fr.z,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,	 //Front Right
+       fl.x, fl.y,  fl.z,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,	 //Front Left
+       bl.x, bl.y, bl.z,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f	 //Back Left
+    };
+
+    const GLuint floatsPerVertex = 3;
+    const GLuint floatsPerNormal = 3;
+    const GLuint floatsPerUV = 2;
+
+    mesh.nVertices = sizeof(verts) / (sizeof(verts[0]) * (floatsPerVertex + floatsPerNormal + floatsPerUV));
+
+    glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
+    glBindVertexArray(mesh.vao);
+
+    // Create 2 buffers: first one for the vertex data; second one for the indices
+    glGenBuffers(1, &mesh.vbos[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
 
     // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
@@ -800,10 +992,177 @@ void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width
 }
 
 
+
+
+void UCreateCircleMesh(GLMesh& mesh, GLfloat radius, GLCoord center) {
+    const GLint numSegments = 60;
+    const GLint floatsPerVertex = 3;
+    const GLint floatsPerNormal = 3;
+    const GLint floatsPerUV = 2;
+
+    mesh.nVertices = numSegments * 3; // Each segment creates a triangle (3 vertices)
+
+    GLfloat* verts = new GLfloat[mesh.nVertices * (floatsPerVertex + floatsPerNormal + floatsPerUV)];
+
+    // Calculate the angle between segments
+    GLfloat angleIncrement = (2.0f * PI) / static_cast<GLfloat>(numSegments);
+
+    for (int i = 0; i < numSegments; ++i) {
+        int baseIndex = i * 3 * (floatsPerVertex + floatsPerNormal + floatsPerUV);
+
+        // Calculate vertex positions for the triangle
+        GLfloat angle1 = angleIncrement * i;
+        GLfloat angle2 = angleIncrement * (i + 1);
+
+        // Vertex 1
+        verts[baseIndex] = center.x;
+        verts[baseIndex + 1] = center.y;
+        verts[baseIndex + 2] = center.z;
+
+        // Normal 1
+        verts[baseIndex + floatsPerVertex] = 0.0f;
+        verts[baseIndex + floatsPerVertex + 1] = 0.0f;
+        verts[baseIndex + floatsPerVertex + 2] = 1.0f;
+
+        // UV 1
+        verts[baseIndex + floatsPerVertex + floatsPerNormal] = 0.5f;
+        verts[baseIndex + floatsPerVertex + floatsPerNormal + 1] = 0.5f;
+
+        // Vertex 2
+        verts[baseIndex + 6] = center.x + radius * cos(angle1);
+        verts[baseIndex + 7] = center.y + radius * sin(angle1);
+        verts[baseIndex + 8] = center.z;
+
+        // Normal 2
+        verts[baseIndex + floatsPerVertex + 6] = 0.0f;
+        verts[baseIndex + floatsPerVertex + 7] = 0.0f;
+        verts[baseIndex + floatsPerVertex + 8] = 1.0f;
+
+        // UV 2
+        verts[baseIndex + floatsPerVertex + floatsPerNormal + 2] = 0.5f * (1 + cos(angle1));
+        verts[baseIndex + floatsPerVertex + floatsPerNormal + 3] = 0.5f * (1 + sin(angle1));
+
+        // Vertex 3
+        verts[baseIndex + 12] = center.x + radius * cos(angle2);
+        verts[baseIndex + 13] = center.y + radius * sin(angle2);
+        verts[baseIndex + 14] = center.z;
+
+        // Normal 3
+        verts[baseIndex + floatsPerVertex + 12] = 0.0f;
+        verts[baseIndex + floatsPerVertex + 13] = 0.0f;
+        verts[baseIndex + floatsPerVertex + 14] = 1.0f;
+
+        // UV 3
+        verts[baseIndex + floatsPerVertex + floatsPerNormal + 4] = 0.5f * (1 + cos(angle2));
+        verts[baseIndex + floatsPerVertex + floatsPerNormal + 5] = 0.5f * (1 + sin(angle2));
+    }
+
+    glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
+    glBindVertexArray(mesh.vao);
+
+    // Create 2 buffers: first one for the vertex data; second one for the indices
+    glGenBuffers(1, &mesh.vbos[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
+
+
+    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerNormal + floatsPerUV);// The number of floats before each
+
+    // Create Vertex Attribute Pointers
+    glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, floatsPerNormal, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * floatsPerVertex));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, floatsPerUV, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * (floatsPerVertex + floatsPerNormal)));
+    glEnableVertexAttribArray(2);
+}
+
+void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat height) {
+    const int numPoints = 60;
+    GLfloat angleIncrement = 2 * PI / numPoints;
+    std::vector<GLfloat> verts;
+    std::vector<GLushort> indices;
+
+    //Let the first indice be the center of the bottom circle, then the second should be center of the top circle
+    verts.push_back(base.x);
+    verts.push_back(base.y);
+    verts.push_back(base.z);
+    verts.push_back(base.x);
+    verts.push_back(base.y + height);
+    verts.push_back(base.z);
+
+    // Create vertices for the sides
+    for (int i = 0; i < numPoints; ++i) {
+        GLfloat x = base.x + radius * cos(i * angleIncrement);
+        GLfloat z = base.z + radius * sin(i * angleIncrement);
+        //Bottom side 1
+        verts.push_back(x);
+        verts.push_back(base.y);
+        verts.push_back(z);
+        //Top Side 1
+        verts.push_back(x);
+        verts.push_back(base.y + height);
+        verts.push_back(z);
+    }
+
+    // Connect the vertices to form the cylinder, one slice at a time
+    for (int i = 0; i < (numPoints - 1); ++i) {
+        int bottomVert = 2 * i + 2;
+        int topVert = 2 * i + 3;
+        int nextBottomVert = bottomVert + 2;
+        int nextTopVert = topVert + 2;
+
+        //Bottom Pie Slice
+        indices.push_back(0);
+        indices.push_back(bottomVert);
+        indices.push_back(nextBottomVert);
+
+        //Top Pie Slice
+        indices.push_back(1);
+        indices.push_back(nextTopVert);
+        indices.push_back(topVert);
+
+        //Side 1
+        indices.push_back(bottomVert);
+        indices.push_back(nextBottomVert);
+        indices.push_back(topVert);
+
+        //Side 2
+        indices.push_back(nextBottomVert);
+        indices.push_back(topVert);
+        indices.push_back(nextTopVert);
+    }
+
+    // Generate VAO and VBOs
+    glGenVertexArrays(1, &mesh.vao);
+    glBindVertexArray(mesh.vao);
+
+    glGenBuffers(1, &mesh.vbos[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]);
+    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GLfloat), verts.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &mesh.vbos[1]);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.vbos[1]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLushort), indices.data(), GL_STATIC_DRAW);
+
+    // Vertex attribute pointers
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    mesh.nIndices = indices.size();
+    glBindVertexArray(0);
+}
+
+
+
+
+
 void UDestroyMesh(GLMesh& mesh)
 {
     glDeleteVertexArrays(1, &mesh.vao);
-    glDeleteBuffers(1, &mesh.vbo);
+    glDeleteBuffers(1, &mesh.vbos[0]);
 }
 
 

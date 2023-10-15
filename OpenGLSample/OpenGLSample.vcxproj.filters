@@ -72,5 +72,11 @@
     <Image Include="..\..\..\..\..\Downloads\cork.jpeg">
       <Filter>Resource Files\Textures</Filter>
     </Image>
+    <Image Include="..\..\..\..\..\Downloads\black.jpeg">
+      <Filter>Resource Files\Textures</Filter>
+    </Image>
+    <Image Include="..\..\..\..\..\Downloads\table.jpeg">
+      <Filter>Resource Files\Textures</Filter>
+    </Image>
   </ItemGroup>
 </Project>
