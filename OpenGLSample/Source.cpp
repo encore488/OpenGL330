@@ -4,7 +4,6 @@
 #include <GLFW/glfw3.h>     // GLFW library
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#include "shader.h"
 
 // GLM Math Header inclusions
 #include <glm/glm.hpp>
@@ -47,14 +46,14 @@ namespace
     // Main GLFW window
     GLFWwindow* gWindow = nullptr;
     
-    ////////////////// Create OG mesh and assign all necessary values   //////////////////
-    GLMesh gMesh;
+    ////////////////// Create basil mesh and assign all necessary values   //////////////////
+    GLMesh basilMesh;
     // Texture
-    GLuint gTextureId;
+    GLuint basilTextureId;
     GLint gTexWrapMode = GL_REPEAT;
     // Subject position and scale
-    glm::vec3 gCubePosition(0.0f, 0.0f, 0.0f);
-    glm::vec3 gCubeScale(2.0f);
+    glm::vec3 gBasilPosition(-3.0f, 0.0f, 0.0f);
+    glm::vec3 gBasilScale(2.0f);
     glm::vec2 gUVScale(1.0f, 1.0f);
     //////////////////
     
@@ -62,7 +61,7 @@ namespace
     GLMesh pyrMesh;
     GLuint pyrTextureId;
     // Pyramid position and scale
-    glm::vec3 gPyramidPosition(3.0f, 0.0f, 3.0f);
+    glm::vec3 gPyramidPosition(3.0f, 0.0f, 0.0f);
     glm::vec3 gPyramidScale(2.0f);
     glm::vec2 gPyramidUVScale(6.0f, 6.0f);
 
@@ -261,7 +260,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
 
     // Create the mesh
-    UCreateMesh(gMesh); // Calls the function to create the Vertex Buffer Object
+    UCreateCubeMesh(basilMesh, { -3.0f, 0.0f, 0.0f }, 2.0f, 1.0f);
     UCreatePyramidMesh(pyrMesh, { 3.0f, 1.0f, 3.0f }, 1.0f, 1.0f);
     UCreateCubeMesh(cayenneMesh, { -3.0f, 2.0f, 3.0f }, 2.0f, 1.0f);
 
@@ -273,8 +272,8 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
 
     // Load texture
-    const char* texFilename = "C://Users//encor//OneDrive//Pictures//theCounter.jpg";
-    if (!UCreateTexture(texFilename, gTextureId))
+    const char* texFilename = "C://Users//encor//Downloads//basilLabel.jpeg";
+    if (!UCreateTexture(texFilename, basilTextureId))
     {
         cout << "Failed to load texture " << texFilename << endl;
         return EXIT_FAILURE;
@@ -322,12 +321,12 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
     }
 
     // Release mesh data
-    UDestroyMesh(gMesh);
+    UDestroyMesh(basilMesh);
     UDestroyMesh(pyrMesh);
 	UDestroyMesh(cayenneMesh);
 
     // Release texture
-    UDestroyTexture(gTextureId);
+    UDestroyTexture(basilTextureId);
     UDestroyTexture(pyrTextureId);
     UDestroyTexture(cayenneTextureId);
 
@@ -366,7 +365,6 @@ bool UInitialize(int argc, char* argv[], GLFWwindow** window)
     glfwSetFramebufferSizeCallback(*window, UResizeWindow);
     glfwSetCursorPosCallback(*window, UMousePositionCallback);
     glfwSetScrollCallback(*window, UMouseScrollCallback);
-    glfwSetMouseButtonCallback(*window, UMouseButtonCallback);
 
     // tell GLFW to capture our mouse
     glfwSetInputMode(*window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -407,64 +405,6 @@ void UProcessInput(GLFWwindow* window)
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         gCamera.ProcessKeyboard(RIGHT, gDeltaTime);
 
-    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS && gTexWrapMode != GL_REPEAT)
-    {
-        glBindTexture(GL_TEXTURE_2D, gTextureId);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        gTexWrapMode = GL_REPEAT;
-
-        cout << "Current Texture Wrapping Mode: REPEAT" << endl;
-    }
-    else if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS && gTexWrapMode != GL_MIRRORED_REPEAT)
-    {
-        glBindTexture(GL_TEXTURE_2D, gTextureId);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        gTexWrapMode = GL_MIRRORED_REPEAT;
-
-        cout << "Current Texture Wrapping Mode: MIRRORED REPEAT" << endl;
-    }
-    else if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS && gTexWrapMode != GL_CLAMP_TO_EDGE)
-    {
-        glBindTexture(GL_TEXTURE_2D, gTextureId);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        gTexWrapMode = GL_CLAMP_TO_EDGE;
-
-        cout << "Current Texture Wrapping Mode: CLAMP TO EDGE" << endl;
-    }
-    else if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS && gTexWrapMode != GL_CLAMP_TO_BORDER)
-    {
-        float color[] = { 1.0f, 0.0f, 1.0f, 1.0f };
-        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
-
-        glBindTexture(GL_TEXTURE_2D, gTextureId);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        gTexWrapMode = GL_CLAMP_TO_BORDER;
-
-        cout << "Current Texture Wrapping Mode: CLAMP TO BORDER" << endl;
-    }
-
-    if (glfwGetKey(window, GLFW_KEY_RIGHT_BRACKET) == GLFW_PRESS)
-    {
-        gUVScale += 0.1f;
-        cout << "Current scale (" << gUVScale[0] << ", " << gUVScale[1] << ")" << endl;
-    }
-    else if (glfwGetKey(window, GLFW_KEY_LEFT_BRACKET) == GLFW_PRESS)
-    {
-        gUVScale -= 0.1f;
-        cout << "Current scale (" << gUVScale[0] << ", " << gUVScale[1] << ")" << endl;
-    }
 
     // Pause and resume lamp orbiting
     static bool isLKeyDown = false;
@@ -511,44 +451,7 @@ void UMouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
     gCamera.ProcessMouseScroll(yoffset);
 }
 
-// glfw: handle mouse button events
-// --------------------------------
-void UMouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
-{
-    switch (button)
-    {
-    case GLFW_MOUSE_BUTTON_LEFT:
-    {
-        if (action == GLFW_PRESS)
-            cout << "Left mouse button pressed" << endl;
-        else
-            cout << "Left mouse button released" << endl;
-    }
-    break;
 
-    case GLFW_MOUSE_BUTTON_MIDDLE:
-    {
-        if (action == GLFW_PRESS)
-            cout << "Middle mouse button pressed" << endl;
-        else
-            cout << "Middle mouse button released" << endl;
-    }
-    break;
-
-    case GLFW_MOUSE_BUTTON_RIGHT:
-    {
-        if (action == GLFW_PRESS)
-            cout << "Right mouse button pressed" << endl;
-        else
-            cout << "Right mouse button released" << endl;
-    }
-    break;
-
-    default:
-        cout << "Unhandled mouse button event" << endl;
-        break;
-    }
-}
 
 
 // Functioned called to render a frame
@@ -571,16 +474,16 @@ void URender()
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Activate the cube VAO (used by cube and lamps)
-    glBindVertexArray(gMesh.vao);
+    // Activate the VAO (used by cubes and lamps)
+    glBindVertexArray(basilMesh.vao);
 
-    // CUBE: draw cube
+    // Basil Creation!
     //----------------
     // Set the shader to be used
     glUseProgram(gCubeProgramId);
 
     // Model matrix: transformations are applied right-to-left order
-    glm::mat4 model = glm::translate(gCubePosition) * glm::scale(gCubeScale);
+    glm::mat4 model = glm::translate(gBasilPosition) * glm::scale(gBasilScale);
 
     // camera/view transformation
     glm::mat4 view = gCamera.GetViewMatrix();
@@ -621,10 +524,10 @@ void URender()
 
     // bind textures on corresponding texture units
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, gTextureId);
+    glBindTexture(GL_TEXTURE_2D, basilTextureId);
 
     // Draws the triangles
-    glDrawArrays(GL_TRIANGLES, 0, gMesh.nVertices);
+    glDrawArrays(GL_TRIANGLES, 0, basilMesh.nVertices);
 
     // LAMP: draw key lamp
     //----------------
@@ -642,7 +545,7 @@ void URender()
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-    glDrawArrays(GL_TRIANGLES, 0, gMesh.nVertices);
+    glDrawArrays(GL_TRIANGLES, 0, basilMesh.nVertices);
 
 
     // LAMP: draw fill lamp
@@ -660,7 +563,7 @@ void URender()
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-    glDrawArrays(GL_TRIANGLES, 0, gMesh.nVertices);
+    glDrawArrays(GL_TRIANGLES, 0, basilMesh.nVertices);
 
     // Deactivate the Vertex Array Object and shader program
     glBindVertexArray(0);
@@ -746,88 +649,7 @@ void URender()
 
 
 
-void UCreateMesh(GLMesh& mesh)
-{
-    // Position and Color data
-    GLfloat verts[] = {
-        //Positions          //Normals
-        // ------------------------------------------------------
-        //Back Face          //Negative Z Normal  Texture Coords.
-       -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-        0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
-        0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-        0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-       -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
-       -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 
-       //Front Face         //Positive Z Normal
-      -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
-       0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
-       0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-       0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-      -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
-      -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
-
-      //Left Face          //Negative X Normal
-     -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-     -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-     -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-     -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-
-     //Right Face         //Positive X Normal
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-     0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-     0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-
-     //Bottom Face        //Negative Y Normal
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-     0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-     0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-    -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
-    -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-
-    //Top Face           //Positive Y Normal
-   -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
-    0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-    0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-    0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-   -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
-   -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
-    };
-
-    const GLuint floatsPerVertex = 3;
-    const GLuint floatsPerNormal = 3;
-    const GLuint floatsPerUV = 2;
-
-    mesh.nVertices = sizeof(verts) / (sizeof(verts[0]) * (floatsPerVertex + floatsPerNormal + floatsPerUV));
-
-    glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
-    glBindVertexArray(mesh.vao);
-
-    // Create 2 buffers: first one for the vertex data; second one for the indices
-    glGenBuffers(1, &mesh.vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo); // Activates the buffer
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
-
-    // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
-    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerNormal + floatsPerUV);// The number of floats before each
-
-    // Create Vertex Attribute Pointers
-    glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, floatsPerNormal, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * floatsPerVertex));
-    glEnableVertexAttribArray(1);
-
-    glVertexAttribPointer(2, floatsPerUV, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * (floatsPerVertex + floatsPerNormal)));
-    glEnableVertexAttribArray(2);
-}
 
 
 void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
@@ -836,19 +658,19 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
     GLfloat verts[] = {
         //Positions          //Normals
         // ------------------------------------------------------
-        //Back Face          //Negative Z Normal  Texture Coords.
+        //Back Face                                          //Negative Z Normal  Texture Coords.
        top.x - (width / 2), top.y - height, top.z - (width/2),  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
         top.x + (width / 2), top.y - height, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
-        top.x + (width / 2),  top.y, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-        top.x + (width / 2),  top.y, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
+        top.x + (width / 2),  top.y, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  0.5f, 1.0f,
+        top.x + (width / 2),  top.y, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  0.5f, 1.0f,
        top.x - (width / 2),  top.y, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
        top.x - (width / 2), top.y - height, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 
        //Front Face         //Positive Z Normal
       top.x - (width / 2), top.y - height,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
        top.x + (width / 2), top.y - height,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
-       top.x + (width / 2),  top.y,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-       top.x + (width / 2),  top.y,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
+       top.x + (width / 2),  top.y,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.5f, 1.0f,
+       top.x + (width / 2),  top.y,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.5f, 1.0f,
       top.x - (width / 2),  top.y,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
       top.x - (width / 2), top.y - height,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
 
@@ -1099,4 +921,3 @@ void UDestroyShaderProgram(GLuint programId)
 {
     glDeleteProgram(programId);
 }
-

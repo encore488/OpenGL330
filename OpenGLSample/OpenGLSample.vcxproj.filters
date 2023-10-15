@@ -66,5 +66,11 @@
     <Image Include="..\..\..\..\Pictures\cayenneLabel.jpg">
       <Filter>Resource Files\Textures</Filter>
     </Image>
+    <Image Include="..\..\..\..\..\Downloads\basilLabel.jpeg">
+      <Filter>Resource Files\Textures</Filter>
+    </Image>
+    <Image Include="..\..\..\..\..\Downloads\cork.jpeg">
+      <Filter>Resource Files\Textures</Filter>
+    </Image>
   </ItemGroup>
 </Project>
