@@ -41,6 +41,7 @@ namespace
         GLfloat y;
         GLfloat z;
     };
+
     #define PI 3.14159265359
     // Main GLFW window
     GLFWwindow* gWindow = nullptr;
@@ -53,7 +54,6 @@ namespace
     glm::vec3 gBasilPosition(-3.0f, -0.2f, 0.0f);
     glm::vec3 gBasilScale(2.0f);
     glm::vec2 gUVScale(1.0f, 1.0f);
-
     GLMesh basilLidMesh;
     GLuint basilLidTextureId;
     glm::vec3 gBasilLidPosition(-3.0f, 2.2f, 0.0f);
@@ -110,7 +110,7 @@ namespace
     
 
     // Cube and lights color
-    glm::vec3 gObjectColor(0.8f, 0.8f, 0.8f);
+    glm::vec3 gObjectColor(1.0f, 0.7f, 0.7f);
     glm::vec3 gLightColor(1.0f, 1.0f, 1.0f);
     glm::vec3 gFillLightColor(1.0f, 0.0f, 1.0f);
 
@@ -147,6 +147,7 @@ bool UCreateShaderProgram(const char* vtxShaderSource, const char* fragShaderSou
 void UDestroyShaderProgram(GLuint programId);
 
 
+////////////////////////////////////////////////Shaders//////////////////////////////////////////////
 /* Cube Vertex Shader Source Code*/
 const GLchar* cubeVertexShaderSource = GLSL(440,
 
@@ -253,6 +254,7 @@ void main()
     fragmentColor = vec4(1.0f); // Set color to white (1.0f,1.0f,1.0f) with alpha 1.0
 }
 );
+/////////////////////////////////// ^^ Shaders ^^ /////////////////////////////////////////////////
 
 
 // Images are loaded with Y axis going down, but OpenGL's Y axis goes up, so let's flip it
@@ -296,7 +298,7 @@ int main(int argc, char* argv[])
     if (!UCreateShaderProgram(lampVertexShaderSource, lampFragmentShaderSource, gLampProgramId))
         return EXIT_FAILURE;
 
-    // Load texture
+    // Load textures
     const char* texFilename = "C://Users//encor//Downloads//basilLabel.jpeg";
     if (!UCreateTexture(texFilename, basilTextureId))
     {
@@ -347,8 +349,6 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
         gDeltaTime = currentFrame - gLastFrame;
         gLastFrame = currentFrame;
 
-        // input
-        // -----
         UProcessInput(gWindow);
 
         // Render this frame
@@ -357,7 +357,7 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
         glfwPollEvents();
     }
 
-    // Release mesh data
+    // Release mesh data. Who knows what will happen if we keep it?
     UDestroyMesh(basilMesh);
     UDestroyMesh(pyrMesh);
 	UDestroyMesh(cayenneMesh);
@@ -424,7 +424,6 @@ bool UInitialize(int argc, char* argv[], GLFWwindow** window)
         return false;
     }
 
-    // Displays GPU OpenGL version
     cout << "INFO: OpenGL Version: " << glGetString(GL_VERSION) << endl;
 
     return true;
@@ -434,19 +433,26 @@ bool UInitialize(int argc, char* argv[], GLFWwindow** window)
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 void UProcessInput(GLFWwindow* window)
 {
-    static const float cameraSpeed = 2.5f;
+    static const float cameraSpeed = 1.8f;
 
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
         gCamera.ProcessKeyboard(FORWARD, gDeltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
         gCamera.ProcessKeyboard(BACKWARD, gDeltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
         gCamera.ProcessKeyboard(LEFT, gDeltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
         gCamera.ProcessKeyboard(RIGHT, gDeltaTime);
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(UP, gDeltaTime);
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        gCamera.ProcessKeyboard(DOWN, gDeltaTime);
+   //if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+        //shootLaser();
 
 
     // Pause and resume lamp orbiting
@@ -497,7 +503,6 @@ void UMouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 
 
 
-// Functioned called to render a frame
 void URender()
 {
     // Lamp orbits around the origin
@@ -801,13 +806,10 @@ void URender()
 
 
 
-
-
 void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
 {
-    // Position and Color data
+    // Position and Texture data
     GLfloat verts[] = {
-        //Positions          //Normals
         // ------------------------------------------------------
         //Back Face                                          //Negative Z Normal  Texture Coords.
        top.x - (width / 2), top.y - height, top.z - (width/2),  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
@@ -817,7 +819,7 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
        top.x - (width / 2),  top.y, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
        top.x - (width / 2), top.y - height, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 
-       //Front Face         //Positive Z Normal
+       //Front Face                                              //Positive Z Normal
       top.x - (width / 2), top.y - height,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
        top.x + (width / 2), top.y - height,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
        top.x + (width / 2),  top.y,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.5f, 1.0f,
@@ -825,7 +827,7 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
       top.x - (width / 2),  top.y,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
       top.x - (width / 2), top.y - height,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
 
-      //Left Face          //Negative X Normal
+      //Left Face                                                //Negative X Normal
      top.x - (width / 2),  top.y,  top.z + (width / 2), -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
      top.x - (width / 2),  top.y, top.z - (width / 2), -1.0f,  0.0f,  0.0f,  0.5f, 1.0f,
      top.x - (width / 2), top.y - height, top.z - (width / 2), -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
@@ -833,7 +835,7 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
      top.x - (width / 2), top.y - height,  top.z + (width / 2), -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
      top.x - (width / 2),  top.y,  top.z + (width / 2), -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
 
-     //Right Face         //Positive X Normal
+     //Right Face                                              //Positive X Normal
      top.x + (width / 2),  top.y,  top.z + (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
      top.x + (width / 2),  top.y, top.z - (width / 2),  1.0f,  0.0f,  0.0f,  0.5f, 1.0f,
      top.x + (width / 2), top.y - height, top.z - (width / 2),  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,  //Bottom Front?
@@ -841,7 +843,7 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
      top.x + (width / 2), top.y - height,  top.z + (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
      top.x + (width / 2),  top.y,  top.z + (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
 
-     //Bottom Face        //Negative Y Normal
+     //Bottom Face                                             //Negative Y Normal
     top.x - (width / 2), top.y - height, top.z - (width / 2),  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
      top.x + (width / 2), top.y - height, top.z - (width / 2),  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
      top.x + (width / 2), top.y - height,  top.z + (width / 2),  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
@@ -849,7 +851,7 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
     top.x - (width / 2), top.y - height,  top.z + (width / 2),  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
     top.x - (width / 2), top.y - height, top.z - (width / 2),  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
 
-    //Top Face           //Positive Y Normal
+    //Top Face                                                 //Positive Y Normal
    top.x - (width / 2),  top.y, top.z - (width / 2),  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
     top.x + (width / 2),  top.y, top.z - (width / 2),  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
     top.x + (width / 2),  top.y,  top.z + (width / 2),  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
@@ -867,13 +869,13 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
     glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
     glBindVertexArray(mesh.vao);
 
-    // Create 2 buffers: first one for the vertex data; second one for the indices
+    // Create buffer for vertex data
     glGenBuffers(1, &mesh.vbos[0]);
     glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
 
-    // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
-    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerNormal + floatsPerUV);// The number of floats before each
+    // Strides between vertex coordinates is all the data required to plot one vertex
+    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerNormal + floatsPerUV);
 
     // Create Vertex Attribute Pointers
     glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
@@ -889,31 +891,30 @@ void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
 
 void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width)
 {
-    // Position and Color data
+    // Position and Texture data
     GLfloat verts[] = {
-        //Positions          //Normals
-        // ------------------------------------------------------
-        //Back Face          //Negative Z Normal  Texture Coords.
+
+        //Back Face                                              //Negative Z Normal  Texture Coords.
        top.x - (width / 2), top.y - height, top.z - (width / 2),  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
         top.x + (width / 2), top.y - height, top .z - (width / 2),  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
         top.x,  top.y, top.z,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
 
-       //Front Face         //Positive Z Normal
+       //Front Face                                             //Positive Z Normal
       top.x - (width / 2), top.y - height,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
        top.x + (width / 2), top.y - height,  top.z + (width / 2),  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
        top.x,  top.y,  top.z,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
 
-      //Left Face          //Negative X Normal
+      //Left Face                          //Negative X Normal
      top.x,  top.y,  top.z, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
      top.x - (width / 2),  top.y - height, top.z + (width / 2), -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
      top.x - (width / 2), top.y - height, top.z - (width / 2), -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
      
-     //Right Face         //Positive X Normal
+     //Right Face                                           //Positive X Normal
      top.x + (width / 2), top.y - height, top.z - (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
      top.x + (width / 2), top.y - height,  top.z + (width / 2),  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
      top.x,  top.y,  top.z,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
 
-     //Bottom Face        //Negative Y Normal
+     //Bottom Face                                          //Negative Y Normal
     top.x - (width / 2), top.y - height, top.z - (width / 2),  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
      top.x + (width / 2), top.y - height, top.z - (width / 2),  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
      top.x + (width / 2), top.y - height,  top.z + (width / 2),  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
@@ -931,13 +932,12 @@ void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width
     glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
     glBindVertexArray(mesh.vao);
 
-    // Create 2 buffers: first one for the vertex data; second one for the indices
+    // Create buffer for the vertex data
     glGenBuffers(1, &mesh.vbos[0]);
     glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
 
-    // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
-    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerNormal + floatsPerUV);// The number of floats before each
+    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerNormal + floatsPerUV);
 
     // Create Vertex Attribute Pointers
     glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
@@ -952,7 +952,7 @@ void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width
 
 void UCreatePlaneMesh(GLMesh& mesh, GLCoord bl, GLCoord br, GLCoord fl, GLCoord fr)
 {
-    // Position and Color data
+    // Position and Vertex data
     GLfloat verts[] = {
        //Coordinates       // Normals         //Texture Coords.
        bl.x, bl.y, bl.z,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,    //Back Left
@@ -972,12 +972,10 @@ void UCreatePlaneMesh(GLMesh& mesh, GLCoord bl, GLCoord br, GLCoord fl, GLCoord 
     glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
     glBindVertexArray(mesh.vao);
 
-    // Create 2 buffers: first one for the vertex data; second one for the indices
     glGenBuffers(1, &mesh.vbos[0]);
     glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
 
-    // Strides between vertex coordinates is 6 (x, y, z, r, g, b, a). A tightly packed stride is 0.
     GLint stride = sizeof(float) * (floatsPerVertex + floatsPerNormal + floatsPerUV);// The number of floats before each
 
     // Create Vertex Attribute Pointers
@@ -995,89 +993,65 @@ void UCreatePlaneMesh(GLMesh& mesh, GLCoord bl, GLCoord br, GLCoord fl, GLCoord 
 
 
 void UCreateCircleMesh(GLMesh& mesh, GLfloat radius, GLCoord center) {
-    const GLint numSegments = 60;
+    const GLint numSegments = 60;    // The number of triangles used to draw the circle
     const GLint floatsPerVertex = 3;
-    const GLint floatsPerNormal = 3;
-    const GLint floatsPerUV = 2;
 
     mesh.nVertices = numSegments * 3; // Each segment creates a triangle (3 vertices)
 
-    GLfloat* verts = new GLfloat[mesh.nVertices * (floatsPerVertex + floatsPerNormal + floatsPerUV)];
+    GLfloat* verts = new GLfloat[mesh.nVertices * floatsPerVertex];   // Create array to hold the vertex data
 
-    // Calculate the angle between segments
+    // Calculate the angle in radians between segments
     GLfloat angleIncrement = (2.0f * PI) / static_cast<GLfloat>(numSegments);
+    //GLfloat angleIncrement = 360.0f / static_cast<GLfloat>(numSegments);   //In degrees
 
+
+    // Create vertices for the circle
     for (int i = 0; i < numSegments; ++i) {
-        int baseIndex = i * 3 * (floatsPerVertex + floatsPerNormal + floatsPerUV);
+        // Calculate the current angle and the next angle (for the next segment)
+        GLfloat angle = static_cast<GLfloat>(i) * angleIncrement;
+        GLfloat nextAngle = static_cast<GLfloat>(i + 1) * angleIncrement;
+        // Find the x and y coordinates of the first vertex
+        GLfloat x = center.x + radius * cos(angle);
+        GLfloat y = center.y + radius * sin(angle);
+        // Find the x and y coordinates of the second vertex
+        GLfloat nextX = center.x + radius * cos(nextAngle);
+        GLfloat nextY = center.y + radius * sin(nextAngle);
 
-        // Calculate vertex positions for the triangle
-        GLfloat angle1 = angleIncrement * i;
-        GLfloat angle2 = angleIncrement * (i + 1);
-
-        // Vertex 1
-        verts[baseIndex] = center.x;
-        verts[baseIndex + 1] = center.y;
-        verts[baseIndex + 2] = center.z;
-
-        // Normal 1
-        verts[baseIndex + floatsPerVertex] = 0.0f;
-        verts[baseIndex + floatsPerVertex + 1] = 0.0f;
-        verts[baseIndex + floatsPerVertex + 2] = 1.0f;
-
-        // UV 1
-        verts[baseIndex + floatsPerVertex + floatsPerNormal] = 0.5f;
-        verts[baseIndex + floatsPerVertex + floatsPerNormal + 1] = 0.5f;
-
-        // Vertex 2
-        verts[baseIndex + 6] = center.x + radius * cos(angle1);
-        verts[baseIndex + 7] = center.y + radius * sin(angle1);
-        verts[baseIndex + 8] = center.z;
-
-        // Normal 2
-        verts[baseIndex + floatsPerVertex + 6] = 0.0f;
-        verts[baseIndex + floatsPerVertex + 7] = 0.0f;
-        verts[baseIndex + floatsPerVertex + 8] = 1.0f;
-
-        // UV 2
-        verts[baseIndex + floatsPerVertex + floatsPerNormal + 2] = 0.5f * (1 + cos(angle1));
-        verts[baseIndex + floatsPerVertex + floatsPerNormal + 3] = 0.5f * (1 + sin(angle1));
-
-        // Vertex 3
-        verts[baseIndex + 12] = center.x + radius * cos(angle2);
-        verts[baseIndex + 13] = center.y + radius * sin(angle2);
-        verts[baseIndex + 14] = center.z;
-
-        // Normal 3
-        verts[baseIndex + floatsPerVertex + 12] = 0.0f;
-        verts[baseIndex + floatsPerVertex + 13] = 0.0f;
-        verts[baseIndex + floatsPerVertex + 14] = 1.0f;
-
-        // UV 3
-        verts[baseIndex + floatsPerVertex + floatsPerNormal + 4] = 0.5f * (1 + cos(angle2));
-        verts[baseIndex + floatsPerVertex + floatsPerNormal + 5] = 0.5f * (1 + sin(angle2));
+        // Vertex positions, starting with the center of the circle
+        verts[i*9] = center.x;
+        verts[(i*9) + 1] = center.y;
+        verts[(i * 9) + 2] = center.z;
+        verts[(i * 9) + 3] = x;
+        verts[(i * 9) + 4] = y;
+        verts[(i * 9) + 5] = center.z;
+        verts[(i * 9) + 6] = nextX;
+        verts[(i * 9) + 7] = nextY;
+        verts[(i * 9) + 8] = center.z;
     }
 
-    glGenVertexArrays(1, &mesh.vao); // we can also generate multiple VAOs or buffers at the same time
+    glGenVertexArrays(1, &mesh.vao);
     glBindVertexArray(mesh.vao);
 
-    // Create 2 buffers: first one for the vertex data; second one for the indices
     glGenBuffers(1, &mesh.vbos[0]);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]); // Activates the buffer
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW); // Sends vertex or coordinate data to the GPU
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]);
+    glBufferData(GL_ARRAY_BUFFER, mesh.nVertices * floatsPerVertex * sizeof(GLfloat), verts, GL_STATIC_DRAW);
 
+    GLint stride = sizeof(float) * floatsPerVertex;
 
-    GLint stride = sizeof(float) * (floatsPerVertex + floatsPerNormal + floatsPerUV);// The number of floats before each
-
-    // Create Vertex Attribute Pointers
+    // Vertex positions attribute pointer
     glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(1, floatsPerNormal, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * floatsPerVertex));
-    glEnableVertexAttribArray(1);
-
-    glVertexAttribPointer(2, floatsPerUV, GL_FLOAT, GL_FALSE, stride, (void*)(sizeof(float) * (floatsPerVertex + floatsPerNormal)));
-    glEnableVertexAttribArray(2);
+    delete[] verts; // Don't forget to release the dynamically allocated memory
 }
+
+
+
+
+
+
+
+
 
 void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat height) {
     const int numPoints = 60;
