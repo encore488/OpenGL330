@@ -67,12 +67,11 @@ namespace
     glm::vec3 gPyramidScale(2.0f);
     glm::vec2 gPyramidUVScale(6.0f, 6.0f);
 
-    // Create Circle mesh and assign all necessary values
-    GLMesh circleMesh;
-    GLuint circleTextureId;
-    glm::vec3 gCirclePosition(3.0f, 1.2f, 5.0f);
-    glm::vec3 gCircleScale(2.0f);
-    glm::vec2 gCircleUVScale(1.0f, 1.0f);
+    // Create Mug mesh and assign all necessary values
+    GLMesh mugMesh;
+    glm::vec3 gMugPosition(3.0f, -0.2f, 5.0f);
+    glm::vec3 gMugScale(2.0f);
+    glm::vec2 gMugUVScale(1.0f, 1.0f);
 
 
     // Cayenne jar
@@ -81,6 +80,13 @@ namespace
     glm::vec3 gCayennePosition(-3.0f, -0.2f, 3.0f);
     glm::vec3 gCayenneScale(2.0f);
     glm::vec2 gCayenneUVScale(1.0f, 1.0f);
+
+    // Hot pad
+    GLMesh padMesh;
+    GLuint padTextureId;
+    glm::vec3 gPadPosition(0.0f, -0.18f, 4.0f);
+    glm::vec3 gPadScale(2.0f);
+
 
     GLMesh cayenneLidMesh;
     GLuint cayenneLidTextureId;
@@ -137,7 +143,7 @@ void UMouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 void UCreatePlaneMesh(GLMesh& mesh, GLCoord bl, GLCoord br, GLCoord fl, GLCoord fr);
 void UCreatePyramidMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width);
 void UCreateCubeMesh(GLMesh& mesh, GLCoord top, GLfloat height, GLfloat width);
-void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat depth);
+void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLfloat height, GLCoord base);
 void UCreateCircleMesh(GLMesh& mesh, GLfloat radius, GLCoord center);
 void UDestroyMesh(GLMesh& mesh);
 bool UCreateTexture(const char* filename, GLuint& textureId);
@@ -251,7 +257,7 @@ const GLchar* lampFragmentShaderSource = GLSL(440,
 
 void main()
 {
-    fragmentColor = vec4(1.0f); // Set color to white (1.0f,1.0f,1.0f) with alpha 1.0
+    fragmentColor = vec4(0.8f, 1.0f, 1.0f, 1.0f); // Set color and alpha of lamps
 }
 );
 /////////////////////////////////// ^^ Shaders ^^ /////////////////////////////////////////////////
@@ -285,11 +291,12 @@ int main(int argc, char* argv[])
     // Create the mesh
     UCreateCubeMesh(basilMesh, { -3.0f, 2.0f, 0.0f }, 2.0f, 1.0f);
     UCreatePyramidMesh(pyrMesh, { 3.0f, 1.0f, 3.0f }, 1.0f, 1.0f);
-    UCreateCircleMesh(circleMesh, 2.0f, { 3.0f, 1.2f, 5.0f });
     UCreateCubeMesh(cayenneMesh, { -3.0f, 2.0f, 3.0f }, 2.0f, 1.0f);
     UCreatePlaneMesh(tableMesh, { -13.0f, 0.0f, -13.0f }, { 13.0f, 0.0f, -13.0f }, { -13.0f, 0.0f, 13.0f }, { 13.0f, 0.0f, 13.0f });
-    UCreateCubeMesh(basilLidMesh, { -3.0f, 3.0f, 0.0f }, 1.0f, 1.1f);
-    UCreateCubeMesh(cayenneLidMesh, { -3.0f, 3.0f, 3.0f }, 1.0f, 1.1f);
+    UCreateCylinderMesh(basilLidMesh, 0.6f, 0.3f, { -3.0f, 2.01f, 0.0f });
+    UCreateCylinderMesh(cayenneLidMesh, 0.6f, 0.3f, { -3.0f, 2.01f, 3.0f });
+    UCreateCylinderMesh(mugMesh, 0.7f, 1.4f, { 3.0f, -0.2f, 5.0f });
+    UCreateCircleMesh(padMesh, 1.0f, { 0.0f, 0.01f, -4.0f });
 
     // Create the shader programs
     if (!UCreateShaderProgram(cubeVertexShaderSource, cubeFragmentShaderSource, gCubeProgramId))
@@ -329,6 +336,13 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
         cout << "Failed to load texture " << lidTexFilename << endl;
 			return EXIT_FAILURE;
 		}
+    const char* padTexFilename = "C://Users//encor//Downloads//cork.jpeg";
+    if (!UCreateTexture(padTexFilename, padTextureId))
+    {
+		cout << "Failed to load texture " << padTexFilename << endl;
+		return EXIT_FAILURE;
+	}
+   
 
 
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
@@ -363,8 +377,9 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
 	UDestroyMesh(cayenneMesh);
     UDestroyMesh(tableMesh);
     UDestroyMesh(basilLidMesh);
-    UDestroyMesh(circleMesh);
+    UDestroyMesh(mugMesh);
     UDestroyMesh(cayenneLidMesh);
+    UDestroyMesh(padMesh);
 
     // Release texture
     UDestroyTexture(basilTextureId);
@@ -372,6 +387,7 @@ if (!UCreateTexture(pyrTexFilename, pyrTextureId))
     UDestroyTexture(cayenneTextureId);
     UDestroyTexture(tableTextureId);
     UDestroyTexture(basilLidTextureId);
+    UDestroyTexture(padTextureId);
 
     // Release shader programs
     UDestroyShaderProgram(gCubeProgramId);
@@ -711,7 +727,7 @@ void URender()
 
     // bind textures on corresponding texture units
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, basilLidTextureId);
+    glBindTexture(GL_TEXTURE_2D, tableTextureId);
 
     // Draws the triangles
     glDrawArrays(GL_TRIANGLES, 0, cayenneLidMesh.nVertices);
@@ -738,11 +754,36 @@ void URender()
 
     // bind textures on corresponding texture units
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, basilLidTextureId);
+    glBindTexture(GL_TEXTURE_2D, tableTextureId);
 
     // Draws the triangles
     glDrawArrays(GL_TRIANGLES, 0, basilLidMesh.nVertices);
     // ^^ Basil Lid Creation ^^
+
+
+                // Mug Creation!
+    glBindVertexArray(mugMesh.vao);
+
+    // Set the shader to be used
+    glUseProgram(gCubeProgramId);
+    glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(model2));
+    glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view2));
+    glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(projection2));
+
+    // Pass color, light, and camera data to the Cube Shader program's corresponding uniforms
+    glUniform3f(objectColorLoc2, gObjectColor.r, gObjectColor.g, gObjectColor.b);
+    glUniform3f(lightColorLoc2, gLightColor.r, gLightColor.g, gLightColor.b);
+    glUniform3f(lightPositionLoc2, gLightPosition.x, gLightPosition.y, gLightPosition.z);
+    glUniform3f(viewPositionLoc2, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gUVScale));
+
+    // bind textures on corresponding texture units
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, basilLidTextureId);
+
+    // Draws the triangles
+    glDrawArrays(GL_TRIANGLES, 0, mugMesh.nVertices);
+    // ^^ Mug Creation ^^
 
     // Table Creation!
     glBindVertexArray(tableMesh.vao);
@@ -771,33 +812,30 @@ void URender()
     glDrawArrays(GL_TRIANGLES, 0, tableMesh.nVertices);
     // ^^ Table Creation ^^
 
-
-            // Circle Creation!
-    glBindVertexArray(circleMesh.vao);
-
+    // Pad Creation!
+    glBindVertexArray(padMesh.vao);
     // Set the shader to be used
     glUseProgram(gCubeProgramId);
-
 
     glUniformMatrix4fv(modelLoc2, 1, GL_FALSE, glm::value_ptr(model2));
     glUniformMatrix4fv(viewLoc2, 1, GL_FALSE, glm::value_ptr(view2));
     glUniformMatrix4fv(projLoc2, 1, GL_FALSE, glm::value_ptr(projection2));
-
 
     // Pass color, light, and camera data to the Cube Shader program's corresponding uniforms
     glUniform3f(objectColorLoc2, gObjectColor.r, gObjectColor.g, gObjectColor.b);
     glUniform3f(lightColorLoc2, gLightColor.r, gLightColor.g, gLightColor.b);
     glUniform3f(lightPositionLoc2, gLightPosition.x, gLightPosition.y, gLightPosition.z);
     glUniform3f(viewPositionLoc2, cameraPosition.x, cameraPosition.y, cameraPosition.z);
-    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gTableUVScale));
+    glUniform2fv(UVScaleLoc, 1, glm::value_ptr(gCayenneUVScale));
 
     // bind textures on corresponding texture units
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tableTextureId);
+    glBindTexture(GL_TEXTURE_2D, padTextureId);
 
     // Draws the triangles
-    glDrawArrays(GL_TRIANGLES, 0, circleMesh.nVertices);
-            // ^^ Circle Creation ^^
+    glDrawArrays(GL_TRIANGLES, 0, padMesh.nVertices);
+    // ^^ Hot pad Creation ^^
+
 
     // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
     glfwSwapBuffers(gWindow);    // Flips the the back buffer with the front buffer every frame.
@@ -989,9 +1027,6 @@ void UCreatePlaneMesh(GLMesh& mesh, GLCoord bl, GLCoord br, GLCoord fl, GLCoord 
     glEnableVertexAttribArray(2);
 }
 
-
-
-
 void UCreateCircleMesh(GLMesh& mesh, GLfloat radius, GLCoord center) {
     const GLint numSegments = 60;    // The number of triangles used to draw the circle
     const GLint floatsPerVertex = 3;
@@ -1002,8 +1037,6 @@ void UCreateCircleMesh(GLMesh& mesh, GLfloat radius, GLCoord center) {
 
     // Calculate the angle in radians between segments
     GLfloat angleIncrement = (2.0f * PI) / static_cast<GLfloat>(numSegments);
-    //GLfloat angleIncrement = 360.0f / static_cast<GLfloat>(numSegments);   //In degrees
-
 
     // Create vertices for the circle
     for (int i = 0; i < numSegments; ++i) {
@@ -1012,21 +1045,21 @@ void UCreateCircleMesh(GLMesh& mesh, GLfloat radius, GLCoord center) {
         GLfloat nextAngle = static_cast<GLfloat>(i + 1) * angleIncrement;
         // Find the x and y coordinates of the first vertex
         GLfloat x = center.x + radius * cos(angle);
-        GLfloat y = center.y + radius * sin(angle);
+        GLfloat z = center.z + radius * sin(angle);
         // Find the x and y coordinates of the second vertex
         GLfloat nextX = center.x + radius * cos(nextAngle);
-        GLfloat nextY = center.y + radius * sin(nextAngle);
+        GLfloat nextZ = center.z + radius * sin(nextAngle);
 
         // Vertex positions, starting with the center of the circle
-        verts[i*9] = center.x;
-        verts[(i*9) + 1] = center.y;
+        verts[i * 9] = center.x;
+        verts[(i * 9) + 1] = center.y;
         verts[(i * 9) + 2] = center.z;
         verts[(i * 9) + 3] = x;
-        verts[(i * 9) + 4] = y;
-        verts[(i * 9) + 5] = center.z;
+        verts[(i * 9) + 4] = center.y;
+        verts[(i * 9) + 5] = z;
         verts[(i * 9) + 6] = nextX;
-        verts[(i * 9) + 7] = nextY;
-        verts[(i * 9) + 8] = center.z;
+        verts[(i * 9) + 7] = center.y;
+        verts[(i * 9) + 8] = nextZ;
     }
 
     glGenVertexArrays(1, &mesh.vao);
@@ -1041,96 +1074,95 @@ void UCreateCircleMesh(GLMesh& mesh, GLfloat radius, GLCoord center) {
     // Vertex positions attribute pointer
     glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
     glEnableVertexAttribArray(0);
-
-    delete[] verts; // Don't forget to release the dynamically allocated memory
 }
 
 
+void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLfloat height, GLCoord center) {
+    //Create a for loop that makes a top circle, bottom circle, and planes to connect them
+    // Each iteration of for loop should make 1 pie slice from the top, one slice from the bottom,
+    //  and 2 triangles to form the plane that connects them. Then increment the angle
 
+    const GLint numSegments = 60;    // The number of triangles used to draw the circle
+    const GLint floatsPerSegment = 36;  // 4 Triangles * 3 Vertices * 3 floats (x, y, z)
+    const GLint floatsPerVertex = 3;    // 3 floats per vertex (x, y, z)
 
+    mesh.nVertices = numSegments * 12; // Each segment creates 4 triangles with 3 vertices each
 
+    GLfloat* verts = new GLfloat[numSegments * floatsPerSegment];   // Create array to hold the vertex data
 
+    // Calculate the angle in radians between segments
+    GLfloat angleIncrement = (2.0f * PI) / static_cast<GLfloat>(numSegments);
 
+    // Create vertices for each of the 4 triangles in each segment
+    for (int i = 0; i < numSegments; ++i) {
+        // Calculate the current angle and the next angle (for the next segment)
+        GLfloat angle = static_cast<GLfloat>(i) * angleIncrement;
+        GLfloat nextAngle = static_cast<GLfloat>(i + 1) * angleIncrement;
+        // Find the x and z coordinates of the first vertex of first triangle
+        GLfloat x = center.x + radius * cos(angle);
+        GLfloat z = center.z + radius * sin(angle);
+        // Find the x and z coordinates of the second vertex
+        GLfloat nextX = center.x + radius * cos(nextAngle);
+        GLfloat nextZ = center.z + radius * sin(nextAngle);
+        // Y value of top circle
+        GLfloat topY = center.y + height;
 
-
-void UCreateCylinderMesh(GLMesh& mesh, GLfloat radius, GLCoord base, GLfloat height) {
-    const int numPoints = 60;
-    GLfloat angleIncrement = 2 * PI / numPoints;
-    std::vector<GLfloat> verts;
-    std::vector<GLushort> indices;
-
-    //Let the first indice be the center of the bottom circle, then the second should be center of the top circle
-    verts.push_back(base.x);
-    verts.push_back(base.y);
-    verts.push_back(base.z);
-    verts.push_back(base.x);
-    verts.push_back(base.y + height);
-    verts.push_back(base.z);
-
-    // Create vertices for the sides
-    for (int i = 0; i < numPoints; ++i) {
-        GLfloat x = base.x + radius * cos(i * angleIncrement);
-        GLfloat z = base.z + radius * sin(i * angleIncrement);
-        //Bottom side 1
-        verts.push_back(x);
-        verts.push_back(base.y);
-        verts.push_back(z);
-        //Top Side 1
-        verts.push_back(x);
-        verts.push_back(base.y + height);
-        verts.push_back(z);
+        // Vertex positions, starting with the center of the bottom circle
+        //Bottom slice
+        verts[i * floatsPerSegment] = center.x;
+        verts[(i * floatsPerSegment) + 1] = center.y;
+        verts[(i * floatsPerSegment) + 2] = center.z;
+        verts[(i * floatsPerSegment) + 3] = x;
+        verts[(i * floatsPerSegment) + 4] = center.y;
+        verts[(i * floatsPerSegment) + 5] = z;
+        verts[(i * floatsPerSegment) + 6] = nextX;
+        verts[(i * floatsPerSegment) + 7] = center.y;
+        verts[(i * floatsPerSegment) + 8] = nextZ;
+        // Top slice
+        verts[(i * floatsPerSegment) + 9] = center.x;
+        verts[(i * floatsPerSegment) + 10] = topY;
+        verts[(i * floatsPerSegment) + 11] = center.z;
+        verts[(i * floatsPerSegment) + 12] = x;
+        verts[(i * floatsPerSegment) + 13] = topY;
+        verts[(i * floatsPerSegment) + 14] = z;
+        verts[(i * floatsPerSegment) + 15] = nextX;
+        verts[(i * floatsPerSegment) + 16] = topY;
+        verts[(i * floatsPerSegment) + 17] = nextZ;
+        // Side Plane, starting with top two points, then bottom current point
+        verts[(i * floatsPerSegment) + 18] = x;
+        verts[(i * floatsPerSegment) + 19] = topY;
+        verts[(i * floatsPerSegment) + 20] = z;
+        verts[(i * floatsPerSegment) + 21] = nextX;
+        verts[(i * floatsPerSegment) + 22] = topY;
+        verts[(i * floatsPerSegment) + 23] = nextZ;
+        verts[(i * floatsPerSegment) + 24] = x;
+        verts[(i * floatsPerSegment) + 25] = center.y;
+        verts[(i * floatsPerSegment) + 26] = z;
+		// Bottom points, then next top point
+        verts[(i * floatsPerSegment) + 27] = nextX;
+        verts[(i * floatsPerSegment) + 28] = center.y;
+        verts[(i * floatsPerSegment) + 29] = nextZ;
+        verts[(i * floatsPerSegment) + 30] = x;
+        verts[(i * floatsPerSegment) + 31] = center.y;
+        verts[(i * floatsPerSegment) + 32] = z;
+        verts[(i * floatsPerSegment) + 33] = nextX;
+        verts[(i * floatsPerSegment) + 34] = topY;
+        verts[(i * floatsPerSegment) + 35] = nextZ;
     }
 
-    // Connect the vertices to form the cylinder, one slice at a time
-    for (int i = 0; i < (numPoints - 1); ++i) {
-        int bottomVert = 2 * i + 2;
-        int topVert = 2 * i + 3;
-        int nextBottomVert = bottomVert + 2;
-        int nextTopVert = topVert + 2;
-
-        //Bottom Pie Slice
-        indices.push_back(0);
-        indices.push_back(bottomVert);
-        indices.push_back(nextBottomVert);
-
-        //Top Pie Slice
-        indices.push_back(1);
-        indices.push_back(nextTopVert);
-        indices.push_back(topVert);
-
-        //Side 1
-        indices.push_back(bottomVert);
-        indices.push_back(nextBottomVert);
-        indices.push_back(topVert);
-
-        //Side 2
-        indices.push_back(nextBottomVert);
-        indices.push_back(topVert);
-        indices.push_back(nextTopVert);
-    }
-
-    // Generate VAO and VBOs
     glGenVertexArrays(1, &mesh.vao);
     glBindVertexArray(mesh.vao);
 
     glGenBuffers(1, &mesh.vbos[0]);
     glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]);
-    glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GLfloat), verts.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, numSegments * floatsPerSegment * sizeof(GLfloat), verts, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &mesh.vbos[1]);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.vbos[1]);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLushort), indices.data(), GL_STATIC_DRAW);
+    GLint stride = sizeof(float) * floatsPerVertex;
 
-    // Vertex attribute pointers
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
+    // Vertex positions attribute pointer
+    glVertexAttribPointer(0, floatsPerVertex, GL_FLOAT, GL_FALSE, stride, 0);
     glEnableVertexAttribArray(0);
-
-    mesh.nIndices = indices.size();
-    glBindVertexArray(0);
 }
-
-
-
 
 
 void UDestroyMesh(GLMesh& mesh)
